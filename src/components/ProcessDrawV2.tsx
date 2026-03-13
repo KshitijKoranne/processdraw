@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useCallback, useEffect } from "react";
 
 /*
@@ -287,10 +289,10 @@ export default function ProcessDrawV2() {
     const img = new Image();
     const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       img.onload = () => {
         ctx.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
-        canvas.toBlob((b) => {
+        canvas.toBlob((b: any) => {
           const a = document.createElement("a"); a.href = URL.createObjectURL(b);
           a.download = "ProcessDraw_Diagram.png"; a.click();
           showToast("PNG exported!"); resolve();
