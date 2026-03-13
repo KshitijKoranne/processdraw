@@ -392,8 +392,8 @@ export default function ProcessDrawV2() {
       if (!frozen) {
         els.push(
           <g key={`del-${i}`} style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }}>
-            <circle cx={bx + dim.w - 1} cy={by - 1} r={9} fill="#444" stroke="#666" strokeWidth={0.5} />
-            <text x={bx + dim.w - 1} y={by} textAnchor="middle" dominantBaseline="central" fontSize={11} fill="#ccc" fontFamily={FONT}>×</text>
+            <circle cx={bx + dim.w - 1} cy={by - 1} r={9} fill="#555" />
+            <text x={bx + dim.w - 1} y={by - 1} textAnchor="middle" dominantBaseline="central" fontSize={12} fill="#eee" fontFamily={FONT}>×</text>
           </g>
         );
       }
@@ -414,11 +414,12 @@ export default function ProcessDrawV2() {
 
         annotations.left.forEach((ann, ai) => {
           const sd = sideItemDimensions(ann.text);
-          const annY = midY - 6 + ai * (sd.h + 4);
+          const totalAnnotH = annotations.left.length * (sd.h + 4) - 4;
+          const annY = midY - totalAnnotH / 2 + ai * (sd.h + 4) + sd.h / 2;
           const annX = CANVAS_CENTER - 20;
           sd.lines.forEach((sl, sli) => {
             els.push(
-              <text key={`ann-l-${i}-${ai}-${sli}`} x={annX} y={annY + sli * 14}
+              <text key={`ann-l-${i}-${ai}-${sli}`} x={annX} y={annY - ((sd.lines.length - 1) * 14) / 2 + sli * 14}
                 textAnchor="end" dominantBaseline="central"
                 fontFamily={FONT} fontSize={11} fill="#1a1a1a" style={{ pointerEvents: "none" }}>
                 {sl}
@@ -428,8 +429,8 @@ export default function ProcessDrawV2() {
           if (!frozen) {
             els.push(
               <g key={`ann-ldel-${i}-${ai}`} style={{ cursor: "pointer" }} onClick={() => removeArrowAnnotation(i, "left", ai)}>
-                <circle cx={annX - sd.w - 8} cy={annY} r={7} fill="#555" />
-                <text x={annX - sd.w - 8} y={annY + 1} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#ccc" fontFamily={FONT}>×</text>
+                <circle cx={annX - sd.w - 8} cy={annY} r={8} fill="#555" />
+                <text x={annX - sd.w - 8} y={annY} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#eee" fontFamily={FONT}>×</text>
               </g>
             );
           }
@@ -437,11 +438,12 @@ export default function ProcessDrawV2() {
 
         annotations.right.forEach((ann, ai) => {
           const sd = sideItemDimensions(ann.text);
-          const annY = midY - 6 + ai * (sd.h + 4);
+          const totalAnnotH = annotations.right.length * (sd.h + 4) - 4;
+          const annY = midY - totalAnnotH / 2 + ai * (sd.h + 4) + sd.h / 2;
           const annX = CANVAS_CENTER + 20;
           sd.lines.forEach((sl, sli) => {
             els.push(
-              <text key={`ann-r-${i}-${ai}-${sli}`} x={annX} y={annY + sli * 14}
+              <text key={`ann-r-${i}-${ai}-${sli}`} x={annX} y={annY - ((sd.lines.length - 1) * 14) / 2 + sli * 14}
                 textAnchor="start" dominantBaseline="central"
                 fontFamily={FONT} fontSize={11} fill="#1a1a1a" style={{ pointerEvents: "none" }}>
                 {sl}
@@ -451,8 +453,8 @@ export default function ProcessDrawV2() {
           if (!frozen) {
             els.push(
               <g key={`ann-rdel-${i}-${ai}`} style={{ cursor: "pointer" }} onClick={() => removeArrowAnnotation(i, "right", ai)}>
-                <circle cx={annX + sd.w + 8} cy={annY} r={7} fill="#555" />
-                <text x={annX + sd.w + 8} y={annY + 1} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#ccc" fontFamily={FONT}>×</text>
+                <circle cx={annX + sd.w + 8} cy={annY} r={8} fill="#555" />
+                <text x={annX + sd.w + 8} y={annY} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#eee" fontFamily={FONT}>×</text>
               </g>
             );
           }
@@ -510,8 +512,8 @@ export default function ProcessDrawV2() {
         if (!frozen) {
           els.push(
             <g key={`ldel-${i}-${li}`} style={{ cursor: "pointer" }} onClick={() => removeSideItem(block.id, "left", li)}>
-              <circle cx={sx - 1} cy={sy - 1} r={7} fill="#555" />
-              <text x={sx - 1} y={sy} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#ccc" fontFamily={FONT}>×</text>
+              <circle cx={sx - 1} cy={sy - 1} r={8} fill="#555" />
+              <text x={sx - 1} y={sy - 1} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#eee" fontFamily={FONT}>×</text>
             </g>
           );
         }
@@ -560,24 +562,28 @@ export default function ProcessDrawV2() {
         if (!frozen) {
           els.push(
             <g key={`rdel-${i}-${ri}`} style={{ cursor: "pointer" }} onClick={() => removeSideItem(block.id, "right", ri)}>
-              <circle cx={sx + sw + 1} cy={sy - 1} r={7} fill="#555" />
-              <text x={sx + sw + 1} y={sy} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="#ccc" fontFamily={FONT}>×</text>
+              <circle cx={sx + sw + 1} cy={sy - 1} r={8} fill="#555" />
+              <text x={sx + sw + 1} y={sy - 1} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#eee" fontFamily={FONT}>×</text>
             </g>
           );
         }
       });
 
-      // + buttons on left and right of block
+      // + buttons on left and right of block — always below the last side item so user can keep adding
       if (!frozen) {
-        const leftPlusY = by + dim.h / 2 + (leftPositions.length ? leftPositions[leftPositions.length - 1].y + leftPositions[leftPositions.length - 1].h - by + 14 : 0);
-        const rightPlusY = by + dim.h / 2 + (rightPositions.length ? rightPositions[rightPositions.length - 1].y + rightPositions[rightPositions.length - 1].h - by + 14 : 0);
+        const leftPlusY = leftPositions.length
+          ? leftPositions[leftPositions.length - 1].y + leftPositions[leftPositions.length - 1].h + 16
+          : by + dim.h / 2;
+        const rightPlusY = rightPositions.length
+          ? rightPositions[rightPositions.length - 1].y + rightPositions[rightPositions.length - 1].h + 16
+          : by + dim.h / 2;
 
         els.push(
-          <PlusBtn key={`plus-l-${i}`} x={bx - 30} y={Math.max(by + dim.h / 2, leftPlusY)} size={20}
+          <PlusBtn key={`plus-l-${i}`} x={bx - SIDE_GAP / 2} y={leftPlusY} size={20}
             onClick={() => setPicker({ blockId: block.id, side: "left" })} frozen={frozen} />
         );
         els.push(
-          <PlusBtn key={`plus-r-${i}`} x={bx + dim.w + 30} y={Math.max(by + dim.h / 2, rightPlusY)} size={20}
+          <PlusBtn key={`plus-r-${i}`} x={bx + dim.w + SIDE_GAP / 2} y={rightPlusY} size={20}
             onClick={() => setPicker({ blockId: block.id, side: "right" })} frozen={frozen} />
         );
       }
