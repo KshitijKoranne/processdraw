@@ -3,10 +3,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 /*
-  ProcessDraw V2 — Canvas-first builder (Fixed)
-  Fixes:
-  1. Left arrow toggle now flips entire arrow (line + head), not just the tip
-  2. + between blocks adds side annotations near the arrow, NOT new rectangles
+  ProcessDraw V2 — Canvas-first builder
+  - Fixed scale: SVG renders at 1:1 pixel size, canvas scrolls
+  - A4 page guides: faint dashed lines show where page breaks fall
+  - Auto-split export: separate PNGs per A4 page
 */
 
 const FONT = "'DM Sans', sans-serif";
@@ -18,6 +18,11 @@ const V_GAP = 80;
 const SIDE_GAP = 60;
 const CANVAS_CENTER = 400;
 const ARROW_SZ = 7;
+
+// A4 at 96 DPI with 25mm margins ≈ 605 × 935 usable pixels
+// We use the full SVG width as our "page width" and A4_PAGE_H for page height
+const A4_PAGE_H = 935;
+const SVG_W = 800; // total canvas width
 
 const SIDE_TYPES = [
   { id: "label", name: "Label", desc: "Text annotation (e.g. Methanol)" },
@@ -32,10 +37,10 @@ const BETWEEN_SIDE_OPTIONS = [
 
 const uid = () => "n" + Math.random().toString(36).slice(2, 8);
 
-function textToLines(text, maxCharsPerLine = 22) {
+function textToLines(text: string, maxCharsPerLine = 22) {
   if (!text) return [""];
   const words = text.split(/\s+/);
-  const lines = [];
+  const lines: string[] = [];
   let cur = "";
   words.forEach((w) => {
     if (cur && (cur + " " + w).length > maxCharsPerLine) {
@@ -49,7 +54,7 @@ function textToLines(text, maxCharsPerLine = 22) {
   return lines.length ? lines : [""];
 }
 
-function blockDimensions(text) {
+function blockDimensions(text: string) {
   const lines = textToLines(text);
   const h = lines.length * LINE_H + BLOCK_V_PAD * 2;
   const maxLine = Math.max(...lines.map((l) => l.length));
@@ -57,7 +62,7 @@ function blockDimensions(text) {
   return { w, h, lines };
 }
 
-function sideItemDimensions(text) {
+function sideItemDimensions(text: string) {
   const lines = textToLines(text, 20);
   const h = lines.length * LINE_H + 14;
   const maxLine = Math.max(...lines.map((l) => l.length));
@@ -66,9 +71,9 @@ function sideItemDimensions(text) {
 }
 
 // ---- Modal Component ----
-function TextModal({ title, initial, onConfirm, onCancel, placeholder }) {
+function TextModal({ title, initial, onConfirm, onCancel, placeholder }: any) {
   const [val, setVal] = useState(initial || "");
-  const ref = useRef(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
   return (
     <div style={{
@@ -109,7 +114,7 @@ function TextModal({ title, initial, onConfirm, onCancel, placeholder }) {
 }
 
 // ---- Side Type Picker ----
-function SidePicker({ side, onPick, onCancel }) {
+function SidePicker({ side, onPick, onCancel }: any) {
   return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex",
@@ -144,7 +149,7 @@ function SidePicker({ side, onPick, onCancel }) {
 }
 
 // ---- Between-arrow side picker ----
-function BetweenPicker({ onPick, onCancel }) {
+function BetweenPicker({ onPick, onCancel }: any) {
   return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex",
@@ -177,8 +182,8 @@ function BetweenPicker({ onPick, onCancel }) {
   );
 }
 
-// ---- Plus Button (SVG) ----
-function PlusBtn({ x, y, size = 24, onClick, frozen }) {
+// ---- SVG Buttons ----
+function PlusBtn({ x, y, size = 24, onClick, frozen }: any) {
   if (frozen) return null;
   return (
     <g style={{ cursor: "pointer" }} onClick={onClick}>
@@ -189,8 +194,7 @@ function PlusBtn({ x, y, size = 24, onClick, frozen }) {
   );
 }
 
-// ---- End Button (SVG) ----
-function EndBtn({ x, y, onClick, frozen }) {
+function EndBtn({ x, y, onClick, frozen }: any) {
   if (frozen) return null;
   const w = 52, h = 26;
   return (
@@ -203,26 +207,27 @@ function EndBtn({ x, y, onClick, frozen }) {
 
 // ---- Main App ----
 export default function ProcessDrawV2() {
-  const [blocks, setBlocks] = useState([]);
-  const [arrowAnnotations, setArrowAnnotations] = useState({});
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [arrowAnnotations, setArrowAnnotations] = useState<any>({});
   const [frozen, setFrozen] = useState(false);
-  const [modal, setModal] = useState(null);
-  const [picker, setPicker] = useState(null);
-  const [betweenPicker, setBetweenPicker] = useState(null);
-  const [toast, setToast] = useState(null);
-  const svgRef = useRef(null);
+  const [modal, setModal] = useState<any>(null);
+  const [picker, setPicker] = useState<any>(null);
+  const [betweenPicker, setBetweenPicker] = useState<any>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  const addBlock = (text) => {
+  const addBlock = (text: string) => {
     setBlocks((prev) => [...prev, { id: uid(), text, leftItems: [], rightItems: [] }]);
   };
 
-  const editBlock = (id, text) => {
+  const editBlock = (id: string, text: string) => {
     setBlocks((prev) => prev.map((b) => b.id === id ? { ...b, text } : b));
   };
 
-  const addSideItem = (blockId, side, sideType, text) => {
+  const addSideItem = (blockId: string, side: string, sideType: string, text: string) => {
     setBlocks((prev) => prev.map((b) => {
       if (b.id !== blockId) return b;
       const item = { id: uid(), type: sideType, text, arrowDir: side === "left" ? "right" : "left" };
@@ -231,8 +236,8 @@ export default function ProcessDrawV2() {
     }));
   };
 
-  const addArrowAnnotation = (arrowIdx, side, text) => {
-    setArrowAnnotations((prev) => {
+  const addArrowAnnotation = (arrowIdx: number, side: string, text: string) => {
+    setArrowAnnotations((prev: any) => {
       const existing = prev[arrowIdx] || { left: [], right: [] };
       const updated = { ...existing };
       updated[side] = [...updated[side], { id: uid(), text }];
@@ -240,17 +245,17 @@ export default function ProcessDrawV2() {
     });
   };
 
-  const removeArrowAnnotation = (arrowIdx, side, itemIdx) => {
-    setArrowAnnotations((prev) => {
+  const removeArrowAnnotation = (arrowIdx: number, side: string, itemIdx: number) => {
+    setArrowAnnotations((prev: any) => {
       const existing = prev[arrowIdx];
       if (!existing) return prev;
       const updated = { ...existing };
-      updated[side] = updated[side].filter((_, i) => i !== itemIdx);
+      updated[side] = updated[side].filter((_: any, i: number) => i !== itemIdx);
       return { ...prev, [arrowIdx]: updated };
     });
   };
 
-  const toggleArrow = (blockId, side, itemIdx) => {
+  const toggleArrow = (blockId: string, side: string, itemIdx: number) => {
     if (frozen) return;
     setBlocks((prev) => prev.map((b) => {
       if (b.id !== blockId) return b;
@@ -261,71 +266,107 @@ export default function ProcessDrawV2() {
     }));
   };
 
-  const removeSideItem = (blockId, side, itemIdx) => {
+  const removeSideItem = (blockId: string, side: string, itemIdx: number) => {
     setBlocks((prev) => prev.map((b) => {
       if (b.id !== blockId) return b;
       const key = side === "left" ? "leftItems" : "rightItems";
-      return { ...b, [key]: b[key].filter((_, i) => i !== itemIdx) };
+      return { ...b, [key]: b[key].filter((_: any, i: number) => i !== itemIdx) };
     }));
   };
 
-  const removeBlock = (id) => {
+  const removeBlock = (id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   };
 
   const handleEnd = () => setFrozen(true);
   const handleUnfreeze = () => setFrozen(false);
 
-  const exportPNG = useCallback(async () => {
-    if (!svgRef.current) return;
+  // ---- Helper: render SVG to a canvas image ----
+  const svgToCanvas = useCallback(async (): Promise<HTMLCanvasElement | null> => {
+    if (!svgRef.current) return null;
     const svgEl = svgRef.current;
     const svgData = new XMLSerializer().serializeToString(svgEl);
-    const vb = svgEl.getAttribute("viewBox")?.split(" ").map(Number) || [0, 0, 800, 600];
-    const scale = 2; const w = vb[2] * scale; const h = vb[3] * scale;
+    const vb = svgEl.getAttribute("viewBox")?.split(" ").map(Number) || [0, 0, SVG_W, 600];
+    const scale = 2;
+    const w = vb[2] * scale;
+    const h = vb[3] * scale;
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d")!;
     ctx.fillStyle = "white"; ctx.fillRect(0, 0, w, h);
     const img = new Image();
     const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    return new Promise<void>((resolve) => {
+    return new Promise((resolve) => {
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
-        canvas.toBlob((b: any) => {
-          const a = document.createElement("a"); a.href = URL.createObjectURL(b);
-          a.download = "ProcessDraw_Diagram.png"; a.click();
-          showToast("PNG exported!"); resolve();
-        }, "image/png");
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas);
       };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
       img.src = url;
     });
   }, []);
 
+  // ---- Export: auto-split into A4 pages ----
+  const exportPages = useCallback(async () => {
+    setExporting(true);
+    const fullCanvas = await svgToCanvas();
+    if (!fullCanvas) { setExporting(false); return; }
+
+    const scale = 2;
+    const pageW = SVG_W * scale;
+    const pageH = A4_PAGE_H * scale;
+    const totalH = fullCanvas.height;
+    const numPages = Math.ceil(totalH / pageH);
+
+    for (let p = 0; p < numPages; p++) {
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = pageW;
+      sliceCanvas.height = Math.min(pageH, totalH - p * pageH);
+      const ctx = sliceCanvas.getContext("2d")!;
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+      ctx.drawImage(
+        fullCanvas,
+        0, p * pageH, pageW, sliceCanvas.height,
+        0, 0, pageW, sliceCanvas.height
+      );
+
+      await new Promise<void>((resolve) => {
+        sliceCanvas.toBlob((blob: any) => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = numPages === 1
+            ? "ProcessDraw_Diagram.png"
+            : `ProcessDraw_Page_${p + 1}.png`;
+          a.click();
+          setTimeout(resolve, 300); // small delay between downloads
+        }, "image/png");
+      });
+    }
+
+    showToast(numPages === 1 ? "PNG exported!" : `${numPages} pages exported!`);
+    setExporting(false);
+  }, [svgToCanvas]);
+
+  // ---- Copy full diagram to clipboard ----
   const copyToClipboard = useCallback(async () => {
-    if (!svgRef.current) return;
-    const svgEl = svgRef.current;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const vb = svgEl.getAttribute("viewBox")?.split(" ").map(Number) || [0, 0, 800, 600];
-    const scale = 2; const w = vb[2] * scale; const h = vb[3] * scale;
-    const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d"); ctx.fillStyle = "white"; ctx.fillRect(0, 0, w, h);
-    const img = new Image();
-    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    img.onload = async () => {
-      ctx.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
-      canvas.toBlob(async (b) => {
-        try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); showToast("Copied to clipboard!"); }
-        catch (e) { showToast("Copy failed — try download"); }
-      }, "image/png");
-    };
-    img.src = url;
-  }, []);
+    const fullCanvas = await svgToCanvas();
+    if (!fullCanvas) return;
+    fullCanvas.toBlob(async (b: any) => {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]);
+        showToast("Copied to clipboard!");
+      } catch (e) {
+        showToast("Copy failed — try download");
+      }
+    }, "image/png");
+  }, [svgToCanvas]);
 
   // ---- Layout ----
   const layout = useCallback(() => {
-    const positions = [];
+    const positions: any[] = [];
     let y = 50;
     const cx = CANVAS_CENTER;
 
@@ -334,13 +375,13 @@ export default function ProcessDrawV2() {
       const bx = cx - dim.w / 2;
       const by = y;
 
-      const leftPositions = block.leftItems.map((item, li) => {
+      const leftPositions = block.leftItems.map((item: any, li: number) => {
         const sd = sideItemDimensions(item.text);
         const iy = by + 16 + li * (sd.h + 8);
         return { ...sd, x: bx - SIDE_GAP - sd.w, y: iy - sd.h / 2, item, idx: li };
       });
 
-      const rightPositions = block.rightItems.map((item, ri) => {
+      const rightPositions = block.rightItems.map((item: any, ri: number) => {
         const sd = sideItemDimensions(item.text);
         const iy = by + 16 + ri * (sd.h + 8);
         return { ...sd, x: bx + dim.w + SIDE_GAP, y: iy - sd.h / 2, item, idx: ri };
@@ -354,14 +395,35 @@ export default function ProcessDrawV2() {
       y += effectiveH + V_GAP;
     });
 
-    return { positions, totalH: y + 60, totalW: CANVAS_CENTER * 2 };
+    return { positions, totalH: y + 60, totalW: SVG_W };
   }, [blocks]);
 
   const { positions, totalH, totalW } = layout();
 
+  // Calculate page count for display
+  const numPages = Math.max(1, Math.ceil(totalH / A4_PAGE_H));
+
   // ---- SVG Rendering ----
   const renderDiagram = () => {
-    const els = [];
+    const els: any[] = [];
+
+    // ---- A4 page boundary guides (faint dashed lines) ----
+    if (blocks.length > 0) {
+      for (let p = 1; p < numPages; p++) {
+        const guideY = p * A4_PAGE_H;
+        els.push(
+          <line key={`page-guide-${p}`}
+            x1={20} y1={guideY} x2={totalW - 20} y2={guideY}
+            stroke="#ccc" strokeWidth={1} strokeDasharray="8 6" opacity={0.7} />
+        );
+        els.push(
+          <text key={`page-label-${p}`} x={totalW - 24} y={guideY - 6}
+            textAnchor="end" fontFamily={FONT} fontSize={9} fill="#bbb">
+            Page {p} / {p + 1}
+          </text>
+        );
+      }
+    }
 
     positions.forEach((pos, i) => {
       const { block, dim, bx, by, leftPositions, rightPositions } = pos;
@@ -377,7 +439,7 @@ export default function ProcessDrawV2() {
 
       // Block text
       const startTY = by + dim.h / 2 - ((dim.lines.length - 1) * LINE_H) / 2;
-      dim.lines.forEach((line, li) => {
+      dim.lines.forEach((line: string, li: number) => {
         els.push(
           <text key={`bt-${i}-${li}`} x={bx + dim.w / 2} y={startTY + li * LINE_H}
             textAnchor="middle" dominantBaseline="central"
@@ -412,12 +474,12 @@ export default function ProcessDrawV2() {
         // Arrow annotations
         const annotations = arrowAnnotations[i] || { left: [], right: [] };
 
-        annotations.left.forEach((ann, ai) => {
+        annotations.left.forEach((ann: any, ai: number) => {
           const sd = sideItemDimensions(ann.text);
           const totalAnnotH = annotations.left.length * (sd.h + 4) - 4;
           const annY = midY - totalAnnotH / 2 + ai * (sd.h + 4) + sd.h / 2;
           const annX = CANVAS_CENTER - 20;
-          sd.lines.forEach((sl, sli) => {
+          sd.lines.forEach((sl: string, sli: number) => {
             els.push(
               <text key={`ann-l-${i}-${ai}-${sli}`} x={annX} y={annY - ((sd.lines.length - 1) * 14) / 2 + sli * 14}
                 textAnchor="end" dominantBaseline="central"
@@ -436,12 +498,12 @@ export default function ProcessDrawV2() {
           }
         });
 
-        annotations.right.forEach((ann, ai) => {
+        annotations.right.forEach((ann: any, ai: number) => {
           const sd = sideItemDimensions(ann.text);
           const totalAnnotH = annotations.right.length * (sd.h + 4) - 4;
           const annY = midY - totalAnnotH / 2 + ai * (sd.h + 4) + sd.h / 2;
           const annX = CANVAS_CENTER + 20;
-          sd.lines.forEach((sl, sli) => {
+          sd.lines.forEach((sl: string, sli: number) => {
             els.push(
               <text key={`ann-r-${i}-${ai}-${sli}`} x={annX} y={annY - ((sd.lines.length - 1) * 14) / 2 + sli * 14}
                 textAnchor="start" dominantBaseline="central"
@@ -460,7 +522,7 @@ export default function ProcessDrawV2() {
           }
         });
 
-        // + between blocks — offset to right side of arrow so it doesn't overlap the arrow line
+        // + between blocks
         if (!frozen) {
           els.push(
             <PlusBtn key={`plus-between-${i}`} x={CANVAS_CENTER + 26} y={midY + 16} size={18}
@@ -469,8 +531,8 @@ export default function ProcessDrawV2() {
         }
       }
 
-      // ---- Left side items (FIXED arrow rendering) ----
-      leftPositions.forEach((lp) => {
+      // ---- Left side items ----
+      leftPositions.forEach((lp: any) => {
         const { x: sx, y: sy, w: sw, h: sh, lines: slines, item, idx: li } = lp;
         const isEquipOrIPQC = item.type === "equipment" || item.type === "ipqc";
         const anchorY = sy + sh / 2;
@@ -482,7 +544,7 @@ export default function ProcessDrawV2() {
         }
 
         const txtStartY = sy + sh / 2 - ((slines.length - 1) * 14) / 2;
-        slines.forEach((sl, sli) => {
+        slines.forEach((sl: string, sli: number) => {
           els.push(
             <text key={`lt-${i}-${li}-${sli}`} x={isEquipOrIPQC ? sx + sw / 2 : sx + sw} y={txtStartY + sli * 14}
               textAnchor={isEquipOrIPQC ? "middle" : "end"} dominantBaseline="central"
@@ -492,7 +554,6 @@ export default function ProcessDrawV2() {
           );
         });
 
-        // FIXED ARROW: arrowDir "right" = points toward block (→), "left" = points away from block (←)
         const lineX1 = sideEdgeX + 4;
         const lineX2 = blockEdgeX - 4;
         const headX = item.arrowDir === "right" ? lineX2 : lineX1;
@@ -519,8 +580,8 @@ export default function ProcessDrawV2() {
         }
       });
 
-      // ---- Right side items (FIXED arrow rendering) ----
-      rightPositions.forEach((rp) => {
+      // ---- Right side items ----
+      rightPositions.forEach((rp: any) => {
         const { x: sx, y: sy, w: sw, h: sh, lines: slines, item, idx: ri } = rp;
         const isEquipOrIPQC = item.type === "equipment" || item.type === "ipqc";
         const anchorY = sy + sh / 2;
@@ -532,7 +593,7 @@ export default function ProcessDrawV2() {
         }
 
         const txtStartY = sy + sh / 2 - ((slines.length - 1) * 14) / 2;
-        slines.forEach((sl, sli) => {
+        slines.forEach((sl: string, sli: number) => {
           els.push(
             <text key={`rt-${i}-${ri}-${sli}`} x={isEquipOrIPQC ? sx + sw / 2 : sx} y={txtStartY + sli * 14}
               textAnchor={isEquipOrIPQC ? "middle" : "start"} dominantBaseline="central"
@@ -542,7 +603,6 @@ export default function ProcessDrawV2() {
           );
         });
 
-        // FIXED ARROW: arrowDir "right" = points away from block (→), "left" = points toward block (←)
         const lineX1 = blockEdgeX + 4;
         const lineX2 = sideEdgeX - 4;
         const headX = item.arrowDir === "right" ? lineX2 : lineX1;
@@ -569,7 +629,7 @@ export default function ProcessDrawV2() {
         }
       });
 
-      // + buttons on left and right of block — always below the last side item so user can keep adding
+      // + buttons on left and right of block
       if (!frozen) {
         const leftPlusY = leftPositions.length
           ? leftPositions[leftPositions.length - 1].y + leftPositions[leftPositions.length - 1].h + 16
@@ -605,7 +665,7 @@ export default function ProcessDrawV2() {
   };
 
   // ---- Modal handlers ----
-  const handleModalConfirm = (text) => {
+  const handleModalConfirm = (text: string) => {
     if (!modal) return;
     if (modal.type === "new") addBlock(text);
     else if (modal.type === "edit") editBlock(modal.blockId, text);
@@ -614,13 +674,13 @@ export default function ProcessDrawV2() {
     setModal(null);
   };
 
-  const handlePickerSelect = (sideType) => {
+  const handlePickerSelect = (sideType: string) => {
     const { blockId, side } = picker;
     setPicker(null);
     setModal({ type: "side", blockId, side, sideType });
   };
 
-  const handleBetweenSideSelect = (side) => {
+  const handleBetweenSideSelect = (side: string) => {
     const { arrowIdx } = betweenPicker;
     setBetweenPicker(null);
     setModal({ type: "between", arrowIdx, side });
@@ -640,7 +700,7 @@ export default function ProcessDrawV2() {
 
   const getModalInitial = () => {
     if (!modal) return "";
-    if (modal.type === "edit") return blocks.find((b) => b.id === modal.blockId)?.text || "";
+    if (modal.type === "edit") return blocks.find((b: any) => b.id === modal.blockId)?.text || "";
     return "";
   };
 
@@ -678,10 +738,11 @@ export default function ProcessDrawV2() {
           )}
           {frozen && (
             <>
-              <button onClick={exportPNG} style={{
+              <button onClick={exportPages} disabled={exporting} style={{
                 background: "#2563eb", border: "none", color: "#fff", borderRadius: 6,
-                padding: "6px 16px", fontSize: 12, cursor: "pointer", fontFamily: FONT, fontWeight: 500
-              }}>Export PNG</button>
+                padding: "6px 16px", fontSize: 12, cursor: exporting ? "wait" : "pointer", fontFamily: FONT, fontWeight: 500,
+                opacity: exporting ? 0.6 : 1
+              }}>{exporting ? "Exporting..." : numPages > 1 ? `Export PNG (${numPages} pages)` : "Export PNG"}</button>
               <button onClick={copyToClipboard} style={{
                 background: "#059669", border: "none", color: "#fff", borderRadius: 6,
                 padding: "6px 16px", fontSize: 12, cursor: "pointer", fontFamily: FONT, fontWeight: 500
@@ -689,13 +750,20 @@ export default function ProcessDrawV2() {
             </>
           )}
           {!frozen && blocks.length > 0 && (
-            <span style={{ fontSize: 11, color: "#666" }}>Click blocks to edit · Click arrows to toggle direction · Press END to finalize</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 11, color: "#666" }}>Click blocks to edit · Click arrows to toggle · END to finalize</span>
+              {numPages > 1 && (
+                <span style={{ fontSize: 10, color: "#555", background: "#222", padding: "2px 8px", borderRadius: 4 }}>
+                  {numPages} pages
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Canvas */}
-      <div style={{ flex: 1, overflow: "auto", background: "#f7f6f2" }}>
+      {/* Canvas — scrollable, fixed scale */}
+      <div style={{ flex: 1, overflow: "auto", background: "#e8e6e1" }}>
         {blocks.length === 0 ? (
           <div style={{
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -715,11 +783,15 @@ export default function ProcessDrawV2() {
             </button>
           </div>
         ) : (
-          <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"
-            viewBox={`0 0 ${totalW} ${totalH}`} style={{ background: "white", minHeight: totalH }}>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');`}</style>
-            {renderDiagram()}
-          </svg>
+          <div style={{ display: "flex", justifyContent: "center", padding: "20px 0", minHeight: "100%" }}>
+            <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg"
+              width={totalW} height={totalH}
+              viewBox={`0 0 ${totalW} ${totalH}`}
+              style={{ background: "white", boxShadow: "0 2px 20px rgba(0,0,0,0.12)", flexShrink: 0 }}>
+              <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');`}</style>
+              {renderDiagram()}
+            </svg>
+          </div>
         )}
       </div>
 
