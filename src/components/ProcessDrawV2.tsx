@@ -74,7 +74,7 @@ function TextModal({ title, initial, onConfirm, onCancel, placeholder }: any) {
           onFocus={(e) => e.target.style.borderColor = "#6a9ff8"} onBlur={(e) => e.target.style.borderColor = "#444"}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (val.trim()) onConfirm(val.trim()); } }} />
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-          <button onClick={onCancel} style={{ background: "#333", border: "none", color: "#aaa", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
+          <button onClick={onCancel} style={{ background: "#333", border: "none", color: "#c0c0c0", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
           <button onClick={() => { if (val.trim()) onConfirm(val.trim()); }} disabled={!val.trim()} style={{ background: val.trim() ? "#2563eb" : "#333", border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: val.trim() ? "pointer" : "default", fontFamily: FONT, opacity: val.trim() ? 1 : 0.4 }}>OK</button>
         </div>
       </div>
@@ -91,10 +91,10 @@ function PickerModal({ title, options, onPick, onCancel }: any) {
           <button key={opt.id} onClick={() => onPick(opt.id)} style={{ display: "block", width: "100%", background: "#2a2a2c", border: "1px solid #3a3a3c", borderRadius: 8, padding: "12px 14px", marginBottom: 6, textAlign: "left", cursor: "pointer" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "#333"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "#2a2a2c"; }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: "#e0e0e0", fontFamily: FONT }}>{opt.name}</div>
-            {opt.desc && <div style={{ fontSize: 11, color: "#777", fontFamily: FONT, marginTop: 2 }}>{opt.desc}</div>}
+            {opt.desc && <div style={{ fontSize: 11, color: "#a0a0a0", fontFamily: FONT, marginTop: 2 }}>{opt.desc}</div>}
           </button>
         ))}
-        <button onClick={onCancel} style={{ width: "100%", background: "none", border: "1px solid #444", color: "#888", borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer", fontFamily: FONT, marginTop: 6 }}>Cancel</button>
+        <button onClick={onCancel} style={{ width: "100%", background: "none", border: "1px solid #444", color: "#a3a3a3", borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer", fontFamily: FONT, marginTop: 6 }}>Cancel</button>
       </div>
     </div>
   );
@@ -106,7 +106,7 @@ function PlusBtn({ x, y, size = 18, onClick, frozen }: any) {
   if (frozen) return null;
   const r = size / 2;
   return (
-    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.35}>
+    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.55}>
       <circle cx={x} cy={y} r={r} fill="none" stroke="#888" strokeWidth={1.2} />
       <line x1={x - 4} y1={y} x2={x + 4} y2={y} stroke="#888" strokeWidth={1.2} />
       <line x1={x} y1={y - 4} x2={x} y2={y + 4} stroke="#888" strokeWidth={1.2} />
@@ -119,7 +119,7 @@ function PlusBtn({ x, y, size = 18, onClick, frozen }: any) {
 function EndBtn({ x, y, onClick, frozen }: any) {
   if (frozen) return null;
   return (
-    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.5}>
+    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.65}>
       <rect x={x - 22} y={y - 10} width={44} height={20} rx={3} fill="none" stroke="#b44" strokeWidth={1.2} />
       <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontFamily={FONT} fontSize={10} fontWeight={500} fill="#b44">END</text>
     </g>
@@ -128,7 +128,7 @@ function EndBtn({ x, y, onClick, frozen }: any) {
 
 function DelBtn({ cx, cy, onClick }: any) {
   return (
-    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.3}>
+    <g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.65}>
       <circle cx={cx} cy={cy} r={7} fill="#999" />
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#fff" fontFamily={FONT}>×</text>
       <circle cx={cx} cy={cy} r={12} fill="transparent" />
@@ -145,18 +145,18 @@ function SettingsPanel({ settings, onSave, onClose }: any) {
       <div onClick={(e) => e.stopPropagation()} style={{ background: "#1c1c1e", borderRadius: 12, padding: "28px 32px", width: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", border: "1px solid #333" }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e0e0", marginBottom: 20, fontFamily: FONT }}>Settings</div>
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, color: "#888", display: "block", marginBottom: 4, fontFamily: FONT }}>Prepared By</label>
+          <label style={{ fontSize: 12, color: "#a3a3a3", display: "block", marginBottom: 4, fontFamily: FONT }}>Prepared By</label>
           <input value={preparedBy} onChange={(e) => setPreparedBy(e.target.value)} placeholder="Your name"
             style={{ width: "100%", background: "#2a2a2c", border: "1px solid #444", color: "#f0f0f0", borderRadius: 6, padding: "8px 12px", fontSize: 14, fontFamily: FONT, outline: "none", boxSizing: "border-box" }} />
         </div>
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, color: "#888", display: "block", marginBottom: 4, fontFamily: FONT }}>Checked By</label>
+          <label style={{ fontSize: 12, color: "#a3a3a3", display: "block", marginBottom: 4, fontFamily: FONT }}>Checked By</label>
           <input value={checkedBy} onChange={(e) => setCheckedBy(e.target.value)} placeholder="Reviewer name"
             style={{ width: "100%", background: "#2a2a2c", border: "1px solid #444", color: "#f0f0f0", borderRadius: 6, padding: "8px 12px", fontSize: 14, fontFamily: FONT, outline: "none", boxSizing: "border-box" }} />
         </div>
-        <div style={{ fontSize: 11, color: "#666", marginBottom: 16, fontFamily: FONT }}>These names appear in the footer of every exported diagram.</div>
+        <div style={{ fontSize: 11, color: "#9e9e9e", marginBottom: 16, fontFamily: FONT }}>These names appear in the footer of every exported diagram.</div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ background: "#333", border: "none", color: "#aaa", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
+          <button onClick={onClose} style={{ background: "#333", border: "none", color: "#c0c0c0", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
           <button onClick={() => { onSave({ preparedBy, checkedBy }); onClose(); }} style={{ background: "#2563eb", border: "none", color: "#fff", borderRadius: 6, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Save</button>
         </div>
       </div>
@@ -476,7 +476,7 @@ export default function ProcessDrawV2() {
         <div style={{ width: 260, background: "#161618", borderRight: "1px solid #2a2a2a", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #2a2a2a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>Saved Diagrams</span>
-            <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 16, fontFamily: FONT }}>×</button>
+            <button onClick={() => setShowHistory(false)} style={{ background: "none", border: "none", color: "#9e9e9e", cursor: "pointer", fontSize: 16, fontFamily: FONT }}>×</button>
           </div>
           {blocks.length > 0 && (
             <div style={{ padding: "10px 16px", borderBottom: "1px solid #222" }}>
@@ -495,17 +495,17 @@ export default function ProcessDrawV2() {
             </div>
           )}
           <div style={{ flex: 1, overflowY: "auto", padding: "6px 12px" }}>
-            {savedDiagrams.length === 0 && <div style={{ fontSize: 12, color: "#555", textAlign: "center", padding: 20 }}>No saved diagrams.</div>}
+            {savedDiagrams.length === 0 && <div style={{ fontSize: 12, color: "#a3a3a3", textAlign: "center", padding: 20 }}>No saved diagrams.</div>}
             {savedDiagrams.map((d) => (
               <div key={d.id} style={{ padding: "8px 10px", marginBottom: 3, borderRadius: 5, background: "#1e1e20", border: "1px solid #2a2a2a", cursor: "pointer" }}
                 onClick={() => loadDiagram(d)} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#444"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#2a2a2a"; }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 500 }}>{d.name}</div>
-                    <div style={{ fontSize: 10, color: "#666", marginTop: 1 }}>{d.blocks?.length || 0} steps · {new Date(d.savedAt).toLocaleDateString()}</div>
+                    <div style={{ fontSize: 10, color: "#9e9e9e", marginTop: 1 }}>{d.blocks?.length || 0} steps · {new Date(d.savedAt).toLocaleDateString()}</div>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); deleteDiagram(d.id); }}
-                    style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>×</button>
+                    style={{ background: "none", border: "none", color: "#9e9e9e", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>×</button>
                 </div>
               </div>
             ))}
@@ -519,22 +519,22 @@ export default function ProcessDrawV2() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderBottom: "1px solid #2a2a2a", background: "#161618", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button onClick={() => setShowHistory(!showHistory)} title="Saved diagrams"
-              style={{ background: showHistory ? "#2a2a2c" : "none", border: "1px solid #333", color: "#999", borderRadius: 5, padding: "4px 8px", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>☰</button>
+              style={{ background: showHistory ? "#2a2a2c" : "none", border: "1px solid #333", color: "#b3b3b3", borderRadius: 5, padding: "4px 8px", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>☰</button>
             <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.5 }}>ProcessDraw</span>
-            <span style={{ fontSize: 10, color: "#444" }}>KJR Labs</span>
+            <span style={{ fontSize: 10, color: "#9e9e9e" }}>KJR Labs</span>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {blocks.length > 0 && !frozen && (
-              <span style={{ fontSize: 10, color: "#555", marginRight: 4 }}>
+              <span style={{ fontSize: 10, color: "#a3a3a3", marginRight: 4 }}>
                 Click blocks to edit · Click arrows to toggle · END to finalize
               </span>
             )}
             <button onClick={() => setShowSettings(true)} title="Settings"
-              style={{ background: "none", border: "1px solid #333", color: "#999", borderRadius: 5, padding: "4px 8px", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>⚙</button>
-            {blocks.length > 0 && <button onClick={newDiagram} style={{ background: "none", border: "1px solid #333", color: "#866", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>New</button>}
+              style={{ background: "none", border: "1px solid #333", color: "#b3b3b3", borderRadius: 5, padding: "4px 8px", fontSize: 12, cursor: "pointer", fontFamily: FONT }}>⚙</button>
+            {blocks.length > 0 && <button onClick={newDiagram} style={{ background: "none", border: "1px solid #333", color: "#d98a8a", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>New</button>}
             {frozen && (
               <>
-                <button onClick={handleUnfreeze} style={{ background: "#2a2a2c", border: "1px solid #444", color: "#ccc", borderRadius: 5, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>Edit</button>
+                <button onClick={handleUnfreeze} style={{ background: "#2a2a2c", border: "1px solid #444", color: "#d9d9d9", borderRadius: 5, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>Edit</button>
                 <button onClick={exportPages} disabled={exporting} style={{ background: "#2563eb", border: "none", color: "#fff", borderRadius: 5, padding: "5px 14px", fontSize: 11, cursor: exporting ? "wait" : "pointer", fontFamily: FONT, fontWeight: 500, opacity: exporting ? 0.6 : 1 }}>
                   {exporting ? "..." : numPages > 1 ? `Export (${numPages} pg)` : "Export PNG"}</button>
                 <button onClick={copyToClipboard} style={{ background: "#059669", border: "none", color: "#fff", borderRadius: 5, padding: "5px 14px", fontSize: 11, cursor: "pointer", fontFamily: FONT, fontWeight: 500 }}>Copy</button>
@@ -547,11 +547,11 @@ export default function ProcessDrawV2() {
         <div style={{ flex: 1, overflow: "auto", background: "#eae8e3" }}>
           {blocks.length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 14 }}>
-              <div style={{ fontSize: 18, fontWeight: 600, color: "#333" }}>Start your process flow</div>
-              <div style={{ fontSize: 13, color: "#999" }}>Click + to add your first step</div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: "#2a2a2a" }}>Start your process flow</div>
+              <div style={{ fontSize: 13, color: "#777" }}>Click + to add your first step</div>
               <button onClick={() => setModal({ type: "new" })} style={{ width: 48, height: 48, borderRadius: "50%", background: "#2563eb", border: "none", color: "white", fontSize: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(37,99,235,0.35)" }}>+</button>
               {savedDiagrams.length > 0 && (
-                <button onClick={() => setShowHistory(true)} style={{ background: "none", border: "1px solid #ccc", color: "#888", borderRadius: 5, padding: "6px 16px", fontSize: 11, cursor: "pointer", fontFamily: FONT, marginTop: 6 }}>
+                <button onClick={() => setShowHistory(true)} style={{ background: "none", border: "1px solid #999", color: "#555", borderRadius: 5, padding: "6px 16px", fontSize: 11, cursor: "pointer", fontFamily: FONT, marginTop: 6 }}>
                   Open saved ({savedDiagrams.length})
                 </button>
               )}
