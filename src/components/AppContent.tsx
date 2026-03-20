@@ -5,125 +5,87 @@ import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
 import ProcessDrawApp from "./ProcessDrawApp";
 
-const HEADING = "'Fraunces', 'Georgia', serif";
-const BODY = "'Outfit', 'Helvetica Neue', sans-serif";
-
+const H = "'Fraunces', 'Georgia', serif";
+const B = "'Outfit', 'Helvetica Neue', sans-serif";
 const C = {
-  bg: "#f6f3ee",
-  surface: "#ffffff",
-  text: "#2c2824",
-  textMid: "#6b6560",
-  textLight: "#a09890",
-  accent: "#3d8b8b",
-  accentDark: "#2d6b6b",
-  accentLight: "#e8f3f3",
-  border: "#e5e0d8",
-  warm: "#f0ebe3",
+  bg: "#f6f3ee", surface: "#fff", text: "#2c2824", mid: "#6b6560",
+  light: "#a09890", accent: "#3d8b8b", accentDk: "#2d6b6b",
+  accentLt: "#e8f3f3", border: "#e5e0d8", warm: "#f0ebe3",
 };
 
 function LandingPage() {
-  const [imageIdx, setImageIdx] = useState(0);
-  const images = ["/images/hero-launch.jpg", "/images/hero-business.jpg", "/images/hero-team.jpg"];
-  const captions = [
-    "Launch your documentation workflow",
-    "Professional process diagrams in minutes",
-    "Built for pharma manufacturing teams",
-  ];
+  const [imgIdx, setImgIdx] = useState(0);
+  const imgs = ["/images/hero-launch.jpg", "/images/hero-business.jpg", "/images/hero-team.jpg"];
+  const caps = ["Build process flows visually", "Professional documentation in minutes", "Collaborate with your team"];
 
-  useEffect(() => {
-    const timer = setInterval(() => setImageIdx((p) => (p + 1) % images.length), 5000);
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(() => { const t = setInterval(() => setImgIdx((p) => (p + 1) % imgs.length), 5000); return () => clearInterval(t); }, []);
 
   const features = [
-    { icon: "⬜", title: "Canvas-First Builder", desc: "Add process steps, side inputs, IPQC checkpoints — all from an intuitive canvas. No drawing skills needed." },
-    { icon: "📄", title: "A4 Auto-Split Export", desc: "Export as print-ready PNGs, automatically split at A4 page boundaries. Paste directly into Word/BPCR documents." },
-    { icon: "✍️", title: "Signature-Ready Footer", desc: "Every export includes Prepared by / Checked by fields with signature lines and date — GMP documentation ready." },
-    { icon: "👥", title: "Role-Based Access", desc: "IT Admin, User, Approver, Viewer — each role sees exactly what they need. Submit diagrams for approval." },
-    { icon: "📋", title: "Full Audit Trail", desc: "Every action is logged: creation, edits, approvals, rejections. Immutable records for compliance." },
-    { icon: "☁️", title: "Cloud Save", desc: "Diagrams saved securely in the cloud. Access from any device, share with your team, never lose work." },
+    { icon: "✏️", title: "Visual Canvas Builder", desc: "Add process steps, side inputs, outputs, and annotations from an intuitive canvas. No drawing skills or expensive software needed." },
+    { icon: "📄", title: "Print-Ready Export", desc: "Export as high-resolution PNGs, automatically split at A4 page boundaries. Copy to clipboard or paste directly into documents." },
+    { icon: "✍️", title: "Document-Ready Footer", desc: "Every export includes Prepared by / Checked by fields with signature lines and date — ready for controlled documentation." },
+    { icon: "👥", title: "Role-Based Access", desc: "IT Admin, User, Approver, Viewer — each role sees exactly what they need. Built-in approval workflow for document control." },
+    { icon: "📋", title: "Complete Audit Trail", desc: "Every action is logged: creation, edits, approvals, rejections. Immutable records for compliance and traceability." },
+    { icon: "☁️", title: "Cloud-Based", desc: "Diagrams saved securely in the cloud. Access from any device, manage your team, never lose work." },
+  ];
+
+  const useCases = [
+    { title: "Pharmaceutical Manufacturing", desc: "BPCR documentation, equipment qualification flows, cleaning validation sequences" },
+    { title: "Chemical Processing", desc: "Reaction pathways, distillation sequences, batch processing workflows" },
+    { title: "Food & Beverage", desc: "Production line flows, HACCP process diagrams, quality control checkpoints" },
+    { title: "General Manufacturing", desc: "Assembly line documentation, process optimization, standard operating procedures" },
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: BODY, color: C.text }}>
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: B, color: C.text }}>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
       {/* Nav */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 40px", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontSize: 22, fontWeight: 700, fontFamily: HEADING, color: C.text }}>ProcessDraw</span>
-          <span style={{ fontSize: 10, color: C.textLight, letterSpacing: 1.5, textTransform: "uppercase" }}>KJR Labs</span>
+          <span style={{ fontSize: 22, fontWeight: 700, fontFamily: H }}>ProcessDraw</span>
+          <span style={{ fontSize: 10, color: C.light, letterSpacing: 1.5, textTransform: "uppercase" }}>KJR Labs</span>
         </div>
         <SignInButton mode="modal">
-          <button style={{
-            background: "none", border: `1.5px solid ${C.accent}`, color: C.accent, borderRadius: 8,
-            padding: "8px 24px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: BODY,
-            transition: "all 0.2s",
-          }}
+          <button style={{ background: "none", border: `1.5px solid ${C.accent}`, color: C.accent, borderRadius: 8, padding: "8px 24px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B, transition: "all 0.2s" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = C.accent; e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = C.accent; }}
-          >Sign In</button>
+            onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = C.accent; }}>
+            Sign In
+          </button>
         </SignInButton>
       </nav>
 
       {/* Hero */}
       <section style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1200, margin: "0 auto", padding: "60px 40px 80px", gap: 60 }}>
         <div style={{ flex: 1, maxWidth: 520 }}>
-          <div style={{ fontSize: 11, color: C.accent, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16 }}>
-            For Pharma API Manufacturing
-          </div>
-          <h1 style={{ fontSize: 48, fontWeight: 700, fontFamily: HEADING, lineHeight: 1.15, color: C.text, margin: "0 0 20px" }}>
-            Process Flow Diagrams,<br />
-            <span style={{ color: C.accent }}>Made Simple</span>
+          <h1 style={{ fontSize: 48, fontWeight: 700, fontFamily: H, lineHeight: 1.15, margin: "0 0 20px" }}>
+            Process Flow Diagrams,<br /><span style={{ color: C.accent }}>Made Simple</span>
           </h1>
-          <p style={{ fontSize: 17, color: C.textMid, lineHeight: 1.7, margin: "0 0 36px" }}>
-            Create clean, standardized PFDs for BPCR documentation in minutes — not hours.
-            No design skills needed. Export print-ready diagrams with signature lines, ready for GMP compliance.
+          <p style={{ fontSize: 17, color: C.mid, lineHeight: 1.7, margin: "0 0 36px" }}>
+            Create clean, standardized process flow diagrams in minutes — not hours. 
+            Built for manufacturing teams who need professional documentation without the complexity of CAD software.
           </p>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <SignInButton mode="modal">
-              <button style={{
-                background: C.accent, border: "none", color: "#fff", borderRadius: 10,
-                padding: "14px 36px", fontSize: 15, fontWeight: 600, cursor: "pointer",
-                fontFamily: BODY, boxShadow: "0 4px 20px rgba(61,139,139,0.3)",
-                transition: "all 0.2s",
-              }}
-                onMouseEnter={(e) => e.currentTarget.style.background = C.accentDark}
-                onMouseLeave={(e) => e.currentTarget.style.background = C.accent}
-              >Sign In</button>
+              <button style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 10, padding: "14px 36px", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: B, boxShadow: "0 4px 20px rgba(61,139,139,0.3)", transition: "all 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.background = C.accentDk}
+                onMouseLeave={(e) => e.currentTarget.style.background = C.accent}>
+                Sign In
+              </button>
             </SignInButton>
-            <span style={{ fontSize: 13, color: C.textLight }}>Contact your IT Admin for access</span>
+            <span style={{ fontSize: 13, color: C.light }}>Your administrator will set up your account</span>
           </div>
         </div>
-
-        {/* Hero illustration with crossfade */}
+        {/* Carousel */}
         <div style={{ flex: 1, maxWidth: 540, position: "relative", height: 380 }}>
-          {images.map((src, i) => (
-            <img key={src} src={src} alt={captions[i]}
-              style={{
-                position: "absolute", top: 0, right: 0, width: "100%", height: "100%",
-                objectFit: "contain", borderRadius: 16,
-                opacity: i === imageIdx ? 1 : 0,
-                transition: "opacity 1s ease-in-out",
-              }} />
+          {imgs.map((src, i) => (
+            <img key={src} src={src} alt={caps[i]} style={{ position: "absolute", top: 0, right: 0, width: "100%", height: "100%", objectFit: "contain", borderRadius: 16, opacity: i === imgIdx ? 1 : 0, transition: "opacity 1s ease-in-out" }} />
           ))}
-          {/* Caption */}
-          <div style={{
-            position: "absolute", bottom: -12, left: 20, right: 20,
-            background: C.surface, borderRadius: 10, padding: "10px 18px",
-            boxShadow: "0 2px 12px rgba(44,40,36,0.08)", border: `1px solid ${C.border}`,
-            display: "flex", alignItems: "center", gap: 12,
-          }}>
+          <div style={{ position: "absolute", bottom: -12, left: 20, right: 20, background: C.surface, borderRadius: 10, padding: "10px 18px", boxShadow: "0 2px 12px rgba(44,40,36,0.08)", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ display: "flex", gap: 6 }}>
-              {images.map((_, i) => (
-                <div key={i} onClick={() => setImageIdx(i)} style={{
-                  width: 8, height: 8, borderRadius: "50%", cursor: "pointer",
-                  background: i === imageIdx ? C.accent : C.border,
-                  transition: "all 0.3s",
-                }} />
-              ))}
+              {imgs.map((_, i) => (<div key={i} onClick={() => setImgIdx(i)} style={{ width: 8, height: 8, borderRadius: "50%", cursor: "pointer", background: i === imgIdx ? C.accent : C.border, transition: "all 0.3s" }} />))}
             </div>
-            <span style={{ fontSize: 12, color: C.textMid, fontWeight: 500 }}>{captions[imageIdx]}</span>
+            <span style={{ fontSize: 12, color: C.mid, fontWeight: 500 }}>{caps[imgIdx]}</span>
           </div>
         </div>
       </section>
@@ -132,89 +94,80 @@ function LandingPage() {
       <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "72px 40px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <h2 style={{ fontSize: 32, fontWeight: 700, fontFamily: HEADING, color: C.text, margin: "0 0 12px" }}>
-              Built for Pharma Documentation
-            </h2>
-            <p style={{ fontSize: 15, color: C.textMid, maxWidth: 520, margin: "0 auto" }}>
-              Every feature designed around how pharmaceutical manufacturing teams actually work with process flow diagrams.
-            </p>
+            <h2 style={{ fontSize: 32, fontWeight: 700, fontFamily: H, margin: "0 0 12px" }}>Everything You Need</h2>
+            <p style={{ fontSize: 15, color: C.mid, maxWidth: 520, margin: "0 auto" }}>Built for teams who create process documentation — with collaboration, approval workflows, and audit trails built in.</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28 }}>
             {features.map((f, i) => (
-              <div key={i} style={{
-                padding: "28px 24px", borderRadius: 14, background: C.bg,
-                border: `1px solid ${C.border}`, transition: "all 0.2s",
-              }}
+              <div key={i} style={{ padding: "28px 24px", borderRadius: 14, background: C.bg, border: `1px solid ${C.border}`, transition: "all 0.2s" }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.boxShadow = "0 4px 20px rgba(61,139,139,0.08)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}
-              >
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "none"; }}>
                 <div style={{ fontSize: 24, marginBottom: 12 }}>{f.icon}</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 8, fontFamily: BODY }}>{f.title}</div>
-                <div style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6 }}>{f.desc}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{f.title}</div>
+                <div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6 }}>{f.desc}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it works — using remaining illustrations */}
+      {/* How It Works */}
       <section style={{ padding: "72px 40px", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <h2 style={{ fontSize: 32, fontWeight: 700, fontFamily: HEADING, color: C.text, margin: "0 0 12px" }}>How It Works</h2>
-          <p style={{ fontSize: 15, color: C.textMid }}>Three steps to a print-ready process flow diagram</p>
+          <h2 style={{ fontSize: 32, fontWeight: 700, fontFamily: H, margin: "0 0 12px" }}>How It Works</h2>
+          <p style={{ fontSize: 15, color: C.mid }}>Three steps to a print-ready process flow diagram</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40 }}>
           {[
-            { img: "/images/hero-launch.jpg", step: "01", title: "Build Your Flow", desc: "Add process steps from the canvas. Click + to add equipment blocks, side inputs, IPQC checkpoints, and connecting annotations." },
-            { img: "/images/hero-business.jpg", step: "02", title: "Review & Finalize", desc: "Click END to freeze the diagram. Review the layout with A4 page guides. Submit for approval if your organization requires it." },
-            { img: "/images/hero-team.jpg", step: "03", title: "Export & Use", desc: "Export as print-ready PNG (auto-split for multi-page). Copy to clipboard. Paste into Word documents with signature-ready footer." },
+            { img: "/images/hero-launch.jpg", step: "01", title: "Build Your Flow", desc: "Add process steps from the canvas. Click + to add equipment blocks, side inputs, quality checkpoints, and annotations between steps." },
+            { img: "/images/hero-business.jpg", step: "02", title: "Review & Approve", desc: "Finalize the diagram, submit for approval. Approvers can review and sign off. Full audit trail tracks every change." },
+            { img: "/images/hero-team.jpg", step: "03", title: "Export & Document", desc: "Export as print-ready PNG with signature footer. Auto-splits for multi-page A4. Paste directly into your documentation." },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: "center" }}>
-              <div style={{
-                width: "100%", height: 200, borderRadius: 14, overflow: "hidden",
-                background: C.warm, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div style={{ width: "100%", height: 200, borderRadius: 14, overflow: "hidden", background: C.warm, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img src={s.img} alt={s.title} style={{ width: "85%", height: "85%", objectFit: "contain" }} />
               </div>
-              <div style={{ fontSize: 36, fontWeight: 700, color: C.accentLight, fontFamily: HEADING, marginBottom: 4 }}>{s.step}</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>{s.title}</div>
-              <div style={{ fontSize: 13, color: C.textMid, lineHeight: 1.6 }}>{s.desc}</div>
+              <div style={{ fontSize: 36, fontWeight: 700, color: C.accentLt, fontFamily: H, marginBottom: 4 }}>{s.step}</div>
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{s.title}</div>
+              <div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6 }}>{s.desc}</div>
             </div>
           ))}
         </div>
       </section>
 
+      {/* Use Cases */}
+      <section style={{ background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: "64px 40px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <h2 style={{ fontSize: 28, fontWeight: 700, fontFamily: H, margin: "0 0 12px" }}>Built for Manufacturing Teams</h2>
+            <p style={{ fontSize: 14, color: C.mid }}>Process flow diagrams for any industry that needs controlled documentation</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+            {useCases.map((u, i) => (
+              <div key={i} style={{ padding: "20px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{u.title}</div>
+                <div style={{ fontSize: 12, color: C.mid, lineHeight: 1.5 }}>{u.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section style={{ padding: "64px 40px 80px", textAlign: "center" }}>
-        <div style={{
-          maxWidth: 640, margin: "0 auto", background: C.surface, borderRadius: 20,
-          padding: "48px 40px", border: `1px solid ${C.border}`,
-          boxShadow: "0 4px 24px rgba(44,40,36,0.06)",
-        }}>
-          <h2 style={{ fontSize: 28, fontWeight: 700, fontFamily: HEADING, color: C.text, margin: "0 0 12px" }}>
-            Ready to simplify your PFD workflow?
-          </h2>
-          <p style={{ fontSize: 14, color: C.textMid, margin: "0 0 28px" }}>
-            Your IT Admin will create your account. Sign in with your employee code and password.
-          </p>
+        <div style={{ maxWidth: 640, margin: "0 auto", background: C.surface, borderRadius: 20, padding: "48px 40px", border: `1px solid ${C.border}`, boxShadow: "0 4px 24px rgba(44,40,36,0.06)" }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700, fontFamily: H, margin: "0 0 12px" }}>Ready to simplify your process documentation?</h2>
+          <p style={{ fontSize: 14, color: C.mid, margin: "0 0 28px" }}>Your administrator creates your account. Sign in with your employee credentials to get started.</p>
           <SignInButton mode="modal">
-            <button style={{
-              background: C.accent, border: "none", color: "#fff", borderRadius: 10,
-              padding: "14px 40px", fontSize: 15, fontWeight: 600, cursor: "pointer",
-              fontFamily: BODY, boxShadow: "0 4px 20px rgba(61,139,139,0.3)",
-            }}>Sign In</button>
+            <button style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 10, padding: "14px 40px", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: B, boxShadow: "0 4px 20px rgba(61,139,139,0.3)" }}>Sign In</button>
           </SignInButton>
         </div>
       </section>
 
       {/* Footer */}
-      <footer style={{
-        borderTop: `1px solid ${C.border}`, padding: "24px 40px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        maxWidth: 1200, margin: "0 auto",
-      }}>
-        <span style={{ fontSize: 12, color: C.textLight }}>ProcessDraw by KJR Labs</span>
-        <span style={{ fontSize: 12, color: C.textLight }}>Built for Pharma API Manufacturing</span>
+      <footer style={{ borderTop: `1px solid ${C.border}`, padding: "24px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 1200, margin: "0 auto" }}>
+        <span style={{ fontSize: 12, color: C.light }}>ProcessDraw by KJR Labs</span>
+        <span style={{ fontSize: 12, color: C.light }}>Process flow diagrams for manufacturing teams</span>
       </footer>
     </div>
   );
@@ -232,14 +185,8 @@ export default function AppContent() {
           </div>
         </div>
       </AuthLoading>
-
-      <Unauthenticated>
-        <LandingPage />
-      </Unauthenticated>
-
-      <Authenticated>
-        <ProcessDrawApp />
-      </Authenticated>
+      <Unauthenticated><LandingPage /></Unauthenticated>
+      <Authenticated><ProcessDrawApp /></Authenticated>
     </>
   );
 }
