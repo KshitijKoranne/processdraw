@@ -83,18 +83,57 @@ function HowToUse({ onClose }: { onClose: () => void }) {
     </div></div>);
 }
 
-export default function ProcessDrawV2() {
+export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const [blocks, setBlocks] = useState<any[]>([]); const [arrowAnn, setArrowAnn] = useState<any>({}); const [frozen, setFrozen] = useState(false);
   const [modal, setModal] = useState<any>(null); const [picker, setPicker] = useState<any>(null); const [betweenPicker, setBetweenPicker] = useState<any>(null);
   const [toast, setToast] = useState<string | null>(null); const [exporting, setExporting] = useState(false); const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({ preparedBy: "", checkedBy: "" }); const [showHistory, setShowHistory] = useState(false); const [savedDiagrams, setSavedDiagrams] = useState<any[]>([]);
   const [saveName, setSaveName] = useState(""); const [showSaveInput, setShowSaveInput] = useState(false); const [showHelp, setShowHelp] = useState(false); const svgRef = useRef<SVGSVGElement>(null);
 
-  useEffect(() => { try { const s = localStorage.getItem("processdraw_settings"); if (s) setSettings(JSON.parse(s)); const d = localStorage.getItem("processdraw_saved"); if (d) setSavedDiagrams(JSON.parse(d)); } catch (e) {} }, []);
+  // Cloud mode: diagrams come from cloud prop; Local mode: localStorage
+  const isCloud = !!cloud;
+  const [currentDiagramId, setCurrentDiagramId] = useState<string | null>(null);
+
+  useEffect(() => { if (!isCloud) { try { const s = localStorage.getItem("processdraw_settings"); if (s) setSettings(JSON.parse(s)); const d = localStorage.getItem("processdraw_saved"); if (d) setSavedDiagrams(JSON.parse(d)); } catch (e) {} } }, [isCloud]);
+  useEffect(() => { if (isCloud && cloud.diagrams) setSavedDiagrams(cloud.diagrams); }, [isCloud, cloud?.diagrams]);
+
   const saveSettings = (s: any) => { setSettings(s); localStorage.setItem("processdraw_settings", JSON.stringify(s)); };
-  const saveDiagram = (name: string) => { const d = { id: uid(), name, blocks, arrowAnnotations: arrowAnn, savedAt: new Date().toISOString() }; const u = [d, ...savedDiagrams.filter((x) => x.name !== name)]; setSavedDiagrams(u); localStorage.setItem("processdraw_saved", JSON.stringify(u)); showT(`Saved "${name}"`); setShowSaveInput(false); setSaveName(""); };
-  const loadDiagram = (d: any) => { setBlocks(d.blocks || []); setArrowAnn(d.arrowAnnotations || {}); setFrozen(false); setShowHistory(false); showT(`Loaded "${d.name}"`); };
-  const deleteDiagram = (id: string) => { const u = savedDiagrams.filter((d) => d.id !== id); setSavedDiagrams(u); localStorage.setItem("processdraw_saved", JSON.stringify(u)); };
+
+  const saveDiagram = async (name: string) => {
+    if (isCloud) {
+      try { await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); showT(`Saved "${name}"`); }
+      catch (e: any) { showT(e.message || "Save failed"); }
+    } else {
+      const d = { id: uid(), name, blocks, arrowAnnotations: arrowAnn, savedAt: new Date().toISOString() };
+      const u = [d, ...savedDiagrams.filter((x: any) => x.name !== name)]; setSavedDiagrams(u);
+      localStorage.setItem("processdraw_saved", JSON.stringify(u)); showT(`Saved "${name}"`);
+    }
+    setShowSaveInput(false); setSaveName("");
+  };
+
+  const loadDiagram = (d: any) => {
+    setBlocks(d.blocks || []); setArrowAnn(d.arrowAnnotations || {});
+    if (d.settings) setSettings(d.settings);
+    if (d._id) setCurrentDiagramId(d._id);
+    setFrozen(false); setShowHistory(false); showT(`Loaded "${d.name}"`);
+  };
+
+  const deleteDiagram = async (id: string) => {
+    if (isCloud) { try { await cloud.onDelete(id); } catch (e: any) { showT(e.message || "Delete failed"); } }
+    else { const u = savedDiagrams.filter((d: any) => d.id !== id); setSavedDiagrams(u); localStorage.setItem("processdraw_saved", JSON.stringify(u)); }
+  };
+
+  const submitForApproval = async () => {
+    if (isCloud && currentDiagramId) {
+      try { await cloud.onSubmit(currentDiagramId); showT("Submitted for approval"); } catch (e: any) { showT(e.message || "Submit failed"); }
+    }
+  };
+
+  const reviewDiagram = async (id: string, decision: string) => {
+    if (isCloud) {
+      try { await cloud.onReview(id, decision); showT(decision === "approved" ? "Approved!" : "Rejected"); } catch (e: any) { showT(e.message || "Review failed"); }
+    }
+  };
   const showT = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2200); };
 
   const addBlock = (t: string) => { setBlocks((p) => [...p, { id: uid(), text: t, leftItems: [], rightItems: [] }]); };
@@ -174,24 +213,48 @@ export default function ProcessDrawV2() {
         (<button onClick={()=>setShowSaveInput(true)} style={{...btnS(C.accent,"#fff"),width:"100%",textAlign:"center" as any}}>Save Current</button>)}</div>)}
       <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
         {savedDiagrams.length===0&&<div style={{fontSize:12,color:C.textLight,textAlign:"center",padding:24,fontStyle:"italic"}}>No saved diagrams yet.</div>}
-        {savedDiagrams.map((d)=>(<div key={d.id} style={{padding:"10px 12px",marginBottom:4,borderRadius:8,background:C.surface,border:`1px solid ${C.borderLight}`,cursor:"pointer",transition:"all 0.12s"}} onClick={()=>loadDiagram(d)} onMouseEnter={(e)=>{e.currentTarget.style.borderColor=C.accent;}} onMouseLeave={(e)=>{e.currentTarget.style.borderColor=C.borderLight;}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:500}}>{d.name}</div><div style={{fontSize:10,color:C.textMuted,marginTop:2}}>{d.blocks?.length||0} steps · {new Date(d.savedAt).toLocaleDateString()}</div></div>
-          <button onClick={(e)=>{e.stopPropagation();deleteDiagram(d.id);}} style={{background:"none",border:"none",color:C.textLight,cursor:"pointer",fontSize:14}}>×</button></div></div>))}</div></div>)}
+        {savedDiagrams.map((d)=>{
+          const statusColors: any = {draft:"#aaa",submitted:"#d4a040",approved:"#5a9e7a",rejected:"#c47a6a"};
+          const statusColor = isCloud ? (statusColors[d.status]||"#aaa") : null;
+          return (<div key={d._id||d.id} style={{padding:"10px 12px",marginBottom:4,borderRadius:8,background:C.surface,border:`1px solid ${C.borderLight}`,cursor:"pointer",transition:"all 0.12s"}} onClick={()=>loadDiagram(d)} onMouseEnter={(e)=>{e.currentTarget.style.borderColor=C.accent;}} onMouseLeave={(e)=>{e.currentTarget.style.borderColor=C.borderLight;}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</div>
+            <div style={{fontSize:10,color:C.textMuted,marginTop:2}}>
+              {d.blocks?.length||0} steps
+              {isCloud&&d.ownerName&&!d.isOwn&&` · by ${d.ownerName}`}
+              {!isCloud&&d.savedAt&&` · ${new Date(d.savedAt).toLocaleDateString()}`}
+              {isCloud&&d.updatedAt&&` · ${new Date(d.updatedAt).toLocaleDateString()}`}
+            </div>
+            {isCloud&&d.status&&<div style={{display:"inline-block",fontSize:9,color:"#fff",background:statusColor,padding:"1px 6px",borderRadius:8,marginTop:3,fontWeight:600,textTransform:"uppercase"}}>{d.status}</div>}
+          </div>
+          <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
+            {isCloud&&cloud.isApprover&&d.status==="submitted"&&<>
+              <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"approved");}} style={{background:"#5a9e7a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✓</button>
+              <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"rejected");}} style={{background:"#c47a6a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✗</button>
+            </>}
+            {(isCloud?d.isOwn||cloud.isAdmin:true)&&<button onClick={(e)=>{e.stopPropagation();deleteDiagram(d._id||d.id);}} style={{background:"none",border:"none",color:C.textLight,cursor:"pointer",fontSize:14}}>×</button>}
+          </div></div></div>);})}</div></div>)}
 
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 20px",borderBottom:`1px solid ${C.border}`,background:C.surface,gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <button onClick={()=>setShowHistory(!showHistory)} title="Saved" style={{background:showHistory?C.accentLight:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:13,cursor:"pointer",fontFamily:BODY}}>☰</button>
           <span style={{fontSize:18,fontWeight:700,fontFamily:HEADING,letterSpacing:-0.5}}>ProcessDraw</span>
-          <span style={{fontSize:10,color:C.textLight,fontWeight:400}}>by KJR Labs</span></div>
+          <span style={{fontSize:10,color:C.textLight,fontWeight:400}}>by KJR Labs</span>
+          {isCloud&&cloud.role&&<span style={{fontSize:9,color:C.accent,background:C.accentLight,padding:"2px 8px",borderRadius:10,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,fontFamily:BODY}}>{cloud.role.replace("_"," ")}</span>}
+        </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {blocks.length>0&&!frozen&&<span style={{fontSize:10,color:C.textLight,marginRight:4}}>Click blocks to edit · Arrows to toggle · END to finalize</span>}
           <button onClick={()=>setShowHelp(true)} title="Help" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>?</button>
           <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>⚙</button>
+          {isCloud&&cloud.isAdmin&&<button onClick={cloud.onShowAdmin} title="Admin" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:11,cursor:"pointer",fontFamily:BODY}}>Users</button>}
           {blocks.length>0&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
           {frozen&&<><button onClick={handleUnfreeze} style={{...btnS(C.bg,C.text,`1px solid ${C.border}`),padding:"5px 12px"}}>Edit</button>
+            {isCloud&&currentDiagramId&&cloud.canEdit&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>Submit for Approval</button>}
             <button onClick={exportPages} disabled={exporting} style={{...btnS(C.accent,"#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>{exporting?"...":numPages>1?`Export (${numPages} pg)`:"Export PNG"}</button>
-            <button onClick={copyClip} style={{...btnS(C.success,"#fff"),padding:"5px 14px"}}>Copy</button></>}</div></div>
+            <button onClick={copyClip} style={{...btnS(C.success,"#fff"),padding:"5px 14px"}}>Copy</button></>}
+          {isCloud&&cloud.UserButton&&<div style={{marginLeft:4}}>{cloud.UserButton}</div>}
+        </div></div>
 
       <div style={{flex:1,overflow:"auto",background:C.bg}}>
         {blocks.length===0?(<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>

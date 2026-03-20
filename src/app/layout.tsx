@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 
 export const metadata: Metadata = {
   title: "ProcessDraw — Process Flow Diagram Builder",
-  description: "Create clean, standardized process flow diagrams for Pharma API manufacturing. No design skills needed.",
-  keywords: ["process flow diagram", "pharma", "API manufacturing", "GMP", "BPCR", "equipment qualification"],
+  description:
+    "Create clean, standardized process flow diagrams for Pharma API manufacturing. No design skills needed.",
 };
 
 export default function RootLayout({
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, padding: 0 }}>{children}</body>
+      <body style={{ margin: 0, padding: 0 }}>
+        <ConvexClientProvider>{children}</ConvexClientProvider>
+      </body>
     </html>
   );
 }
