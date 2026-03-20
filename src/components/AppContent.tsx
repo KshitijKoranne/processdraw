@@ -90,9 +90,9 @@ function LandingPage() {
               }}
                 onMouseEnter={(e) => e.currentTarget.style.background = C.accentDark}
                 onMouseLeave={(e) => e.currentTarget.style.background = C.accent}
-              >Get Started — Free</button>
+              >Sign In</button>
             </SignInButton>
-            <span style={{ fontSize: 13, color: C.textLight }}>No credit card required</span>
+            <span style={{ fontSize: 13, color: C.textLight }}>Contact your IT Admin for access</span>
           </div>
         </div>
 
@@ -195,14 +195,14 @@ function LandingPage() {
             Ready to simplify your PFD workflow?
           </h2>
           <p style={{ fontSize: 14, color: C.textMid, margin: "0 0 28px" }}>
-            Join pharmaceutical teams creating standardized process flow diagrams in minutes.
+            Your IT Admin will create your account. Sign in with your employee code and password.
           </p>
           <SignInButton mode="modal">
             <button style={{
               background: C.accent, border: "none", color: "#fff", borderRadius: 10,
               padding: "14px 40px", fontSize: 15, fontWeight: 600, cursor: "pointer",
               fontFamily: BODY, boxShadow: "0 4px 20px rgba(61,139,139,0.3)",
-            }}>Start Creating — Free</button>
+            }}>Sign In</button>
           </SignInButton>
         </div>
       </section>
