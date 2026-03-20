@@ -1,23 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { logAction } from "./auditLog";
 
-// Get current user from Clerk identity
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
-
-    const user = await ctx.db
+    return await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-
-    return user;
   },
 });
 
-// Create or update user on login (called from client after Clerk auth)
 export const upsertUser = mutation({
   args: {},
   handler: async (ctx) => {
@@ -30,54 +26,69 @@ export const upsertUser = mutation({
       .unique();
 
     if (existing) {
-      // Update name/email if changed in Clerk
       await ctx.db.patch(existing._id, {
         name: identity.name || existing.name,
         email: identity.email || existing.email,
         imageUrl: identity.pictureUrl || existing.imageUrl,
       });
+
+      // Log login
+      await logAction(ctx, {
+        action: "user_login",
+        actorId: existing.clerkId,
+        actorName: existing.name,
+        actorEmail: existing.email,
+      });
+
       return existing._id;
     }
 
-    // First user becomes IT Admin, rest become "user"
+    // First user → IT Admin
     const allUsers = await ctx.db.query("users").collect();
     const role = allUsers.length === 0 ? "it_admin" : "user";
+    const name = identity.name || "User";
+    const email = identity.email || "";
 
-    return await ctx.db.insert("users", {
+    const id = await ctx.db.insert("users", {
       clerkId: identity.subject,
-      email: identity.email || "",
-      name: identity.name || "User",
+      email,
+      name,
       role,
       imageUrl: identity.pictureUrl,
       createdAt: Date.now(),
     });
+
+    await logAction(ctx, {
+      action: "user_created",
+      actorId: identity.subject,
+      actorName: name,
+      actorEmail: email,
+      targetType: "user",
+      targetId: identity.subject,
+      targetName: name,
+      details: JSON.stringify({ role, isFirstUser: allUsers.length === 0 }),
+    });
+
+    return id;
   },
 });
 
-// List all users (IT Admin only)
 export const listUsers = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-
     if (!currentUser || currentUser.role !== "it_admin") return [];
-
     return await ctx.db.query("users").collect();
   },
 });
 
-// Update user role (IT Admin only)
 export const updateUserRole = mutation({
-  args: {
-    userId: v.id("users"),
-    role: v.string(),
-  },
+  args: { userId: v.id("users"), role: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -86,16 +97,26 @@ export const updateUserRole = mutation({
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-
-    if (!currentUser || currentUser.role !== "it_admin") {
-      throw new Error("Only IT Admins can change roles");
-    }
+    if (!currentUser || currentUser.role !== "it_admin") throw new Error("Only IT Admins can change roles");
 
     const validRoles = ["it_admin", "user", "approver", "viewer"];
-    if (!validRoles.includes(args.role)) {
-      throw new Error("Invalid role");
-    }
+    if (!validRoles.includes(args.role)) throw new Error("Invalid role");
 
+    const targetUser = await ctx.db.get(args.userId);
+    if (!targetUser) throw new Error("User not found");
+
+    const oldRole = targetUser.role;
     await ctx.db.patch(args.userId, { role: args.role });
+
+    await logAction(ctx, {
+      action: "role_changed",
+      actorId: currentUser.clerkId,
+      actorName: currentUser.name,
+      actorEmail: currentUser.email,
+      targetType: "user",
+      targetId: targetUser.clerkId,
+      targetName: targetUser.name,
+      details: JSON.stringify({ oldRole, newRole: args.role }),
+    });
   },
 });
