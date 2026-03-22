@@ -158,10 +158,70 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const exportPages = useCallback(async () => { setExporting(true); const fc=await svgToCanvas(); if(!fc){setExporting(false);return;} const s=2;const pW=SVG_W*s;const pH=A4_PAGE_H*s;const tH=fc.height;const nP=Math.ceil(tH/pH); for(let p=0;p<nP;p++){const sc=document.createElement("canvas");sc.width=pW;sc.height=Math.min(pH,tH-p*pH);const ctx=sc.getContext("2d")!;ctx.fillStyle="white";ctx.fillRect(0,0,sc.width,sc.height);ctx.drawImage(fc,0,p*pH,pW,sc.height,0,0,pW,sc.height);await new Promise<void>((r)=>{sc.toBlob((b:any)=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=nP===1?"ProcessDraw_Diagram.png":`ProcessDraw_Page_${p+1}.png`;a.click();setTimeout(r,300);},"image/png");});} showT(nP===1?"Exported!":`${nP} pages exported!`);setExporting(false); }, [svgToCanvas]);
   const copyClip = useCallback(async () => { const fc=await svgToCanvas(); if(!fc) return; fc.toBlob(async(b:any)=>{try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);showT("Copied!");}catch(e){showT("Copy failed");};},"image/png"); }, [svgToCanvas]);
 
-  const layout = useCallback(() => { const pos: any[]=[]; let y=50; blocks.forEach((block)=>{ const td=blockTextDim(block.text); const lSH=sideStackH(block.leftItems); const rSH=sideStackH(block.rightItems); const bH=Math.max(td.h,Math.max(lSH,rSH)+24); const bW=td.w; const bx=CANVAS_CENTER-bW/2; const by=y;
-    const layoutSide=(items:any[],side:string)=>{const sH=sideStackH(items);let iy=by+(bH-sH)/2;return items.map((item:any,idx:number)=>{const sd=sideDim(item.text);const p={...sd,x:side==="left"?bx-SIDE_GAP-sd.w:bx+bW+SIDE_GAP,y:iy,item,idx,anchorY:iy+sd.h/2};iy+=sd.h+SIDE_ITEM_GAP;return p;});};
-    pos.push({block,bx,by,bW,bH,textLines:td.lines,lPos:layoutSide(block.leftItems,"left"),rPos:layoutSide(block.rightItems,"right")}); y+=bH+V_GAP; }); const dH=y+20; return{pos,totalH:frozen?dH+FOOTER_H+20:dH+40,totalW:SVG_W,dEndY:dH}; },[blocks,frozen]);
-  const{pos:positions,totalH,totalW,dEndY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
+  const layout = useCallback(() => {
+    const pos: any[] = [];
+    let y = 50;
+    const PAGE_MARGIN = 30; // breathing room at top/bottom of each page
+
+    blocks.forEach((block) => {
+      const td = blockTextDim(block.text);
+      const lSH = sideStackH(block.leftItems);
+      const rSH = sideStackH(block.rightItems);
+      const bH = Math.max(td.h, Math.max(lSH, rSH) + 24);
+      const bW = td.w;
+
+      // Check if this block would straddle a page boundary
+      // We need the full block height plus some margin to not touch the edge
+      const blockBottom = y + bH;
+      const currentPage = Math.floor(y / A4_PAGE_H);
+      const blockBottomPage = Math.floor((blockBottom + PAGE_MARGIN) / A4_PAGE_H);
+
+      // If block spans across a page boundary, push to next page
+      if (blockBottomPage > currentPage && y > PAGE_MARGIN) {
+        y = (currentPage + 1) * A4_PAGE_H + PAGE_MARGIN;
+      }
+
+      const bx = CANVAS_CENTER - bW / 2;
+      const by = y;
+
+      const layoutSide = (items: any[], side: string) => {
+        const sH = sideStackH(items);
+        let iy = by + (bH - sH) / 2;
+        return items.map((item: any, idx: number) => {
+          const sd = sideDim(item.text);
+          const p = {
+            ...sd,
+            x: side === "left" ? bx - SIDE_GAP - sd.w : bx + bW + SIDE_GAP,
+            y: iy, item, idx, anchorY: iy + sd.h / 2,
+          };
+          iy += sd.h + SIDE_ITEM_GAP;
+          return p;
+        });
+      };
+
+      pos.push({
+        block, bx, by, bW, bH, textLines: td.lines,
+        lPos: layoutSide(block.leftItems, "left"),
+        rPos: layoutSide(block.rightItems, "right"),
+      });
+      y += bH + V_GAP;
+    });
+
+    const dH = y + 20;
+    // Ensure footer doesn't straddle a page boundary
+    let footerY = dH + 10;
+    if (frozen) {
+      const footerPage = Math.floor(footerY / A4_PAGE_H);
+      const footerBottom = footerY + FOOTER_H;
+      const footerBottomPage = Math.floor(footerBottom / A4_PAGE_H);
+      if (footerBottomPage > footerPage) {
+        footerY = (footerPage + 1) * A4_PAGE_H + PAGE_MARGIN;
+      }
+    }
+    const finalH = frozen ? footerY + FOOTER_H + 20 : dH + 40;
+    return { pos, totalH: finalH, totalW: SVG_W, dEndY: dH, footerY };
+  }, [blocks, frozen]);
+  const{pos:positions,totalH,totalW,dEndY,footerY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
 
   const renderDiagram = () => { const els:any[]=[];
     if(blocks.length>0&&!frozen) for(let p=1;p<numPages;p++){const gy=p*A4_PAGE_H; els.push(<line key={`pg-${p}`} x1={40} y1={gy} x2={totalW-40} y2={gy} stroke={C.borderLight} strokeWidth={0.5} strokeDasharray="6 4"/>); els.push(<text key={`pl-${p}`} x={totalW-40} y={gy-5} textAnchor="end" fontFamily={BODY} fontSize={8} fill={C.textLight}>— page break —</text>);}
@@ -194,7 +254,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
         els.push(<PlusBtn key={`pr-${i}`} x={bx+bW+SIDE_GAP/2} y={rby} size={14} onClick={()=>setPicker({blockId:block.id,side:"right"})} frozen={frozen}/>);}
       if(i===positions.length-1&&!frozen){const bY=by+bH+32;els.push(<PlusBtn key="pe" x={CANVAS_CENTER-28} y={bY} size={16} onClick={()=>setModal({type:"new"})} frozen={frozen}/>);els.push(<EndBtn key="eb" x={CANVAS_CENTER+28} y={bY} onClick={handleEnd} frozen={frozen}/>);}
     });
-    if(frozen&&blocks.length>0){const fY=dEndY+10;const lW=140;const c1=60;const c2=SVG_W/2+30;const dt=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"});
+    if(frozen&&blocks.length>0){const fY=footerY;const lW=140;const c1=60;const c2=SVG_W/2+30;const dt=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"});
       els.push(<line key="fs" x1={40} y1={fY} x2={SVG_W-40} y2={fY} stroke="#ccc" strokeWidth={0.5}/>);
       els.push(<text key="fp" x={c1} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a" fontWeight="600">Prepared by:</text>);
       els.push(<text key="fpn" x={c1+80} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a">{settings.preparedBy||"___________"}</text>);
