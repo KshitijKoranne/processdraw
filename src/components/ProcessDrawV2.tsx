@@ -164,7 +164,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const{pos:positions,totalH,totalW,dEndY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
 
   const renderDiagram = () => { const els:any[]=[];
-    if(blocks.length>0) for(let p=1;p<numPages;p++){const gy=p*A4_PAGE_H; els.push(<line key={`pg-${p}`} x1={40} y1={gy} x2={totalW-40} y2={gy} stroke={C.borderLight} strokeWidth={0.5} strokeDasharray="6 4"/>); els.push(<text key={`pl-${p}`} x={totalW-40} y={gy-5} textAnchor="end" fontFamily={BODY} fontSize={8} fill={C.textLight}>— page break —</text>);}
+    if(blocks.length>0&&!frozen) for(let p=1;p<numPages;p++){const gy=p*A4_PAGE_H; els.push(<line key={`pg-${p}`} x1={40} y1={gy} x2={totalW-40} y2={gy} stroke={C.borderLight} strokeWidth={0.5} strokeDasharray="6 4"/>); els.push(<text key={`pl-${p}`} x={totalW-40} y={gy-5} textAnchor="end" fontFamily={BODY} fontSize={8} fill={C.textLight}>— page break —</text>);}
     positions.forEach((p,i)=>{ const{block,bx,by,bW,bH,textLines,lPos,rPos}=p;
       els.push(<rect key={`b-${i}`} x={bx} y={by} width={bW} height={bH} fill="white" stroke="#1a1a1a" strokeWidth={1.5} rx={1} style={{cursor:frozen?"default":"pointer"}} onClick={()=>{if(!frozen)setModal({type:"edit",blockId:block.id});}}/>);
       const tSY=by+bH/2-((textLines.length-1)*LINE_H)/2; textLines.forEach((line:string,li:number)=>{els.push(<text key={`bt-${i}-${li}`} x={bx+bW/2} y={tSY+li*LINE_H} textAnchor="middle" dominantBaseline="central" fontFamily={SVG_FONT} fontSize={13} fontWeight="600" fill="#1a1a1a" style={{pointerEvents:"none"}}>{line}</text>);});
