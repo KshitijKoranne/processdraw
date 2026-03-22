@@ -10,11 +10,12 @@ async function getAuthUser(ctx: any) {
   return user;
 }
 
+// Only "user" role can create diagrams
 export const create = mutation({
   args: { name: v.string(), blocks: v.string(), arrowAnnotations: v.string(), settings: v.string() },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
-    if (user.role === "viewer") throw new Error("Viewers cannot create diagrams");
+    if (user.role !== "user") throw new Error("Only users can create diagrams");
     const id = await ctx.db.insert("diagrams", {
       name: args.name, ownerId: user.clerkId, ownerName: user.name,
       blocks: args.blocks, arrowAnnotations: args.arrowAnnotations,
@@ -26,14 +27,15 @@ export const create = mutation({
   },
 });
 
+// Only owner (user role) can edit their own diagrams
 export const update = mutation({
   args: { diagramId: v.id("diagrams"), name: v.optional(v.string()), blocks: v.optional(v.string()), arrowAnnotations: v.optional(v.string()), settings: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
+    if (user.role !== "user") throw new Error("Only users can edit diagrams");
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
-    if (user.role !== "it_admin" && diagram.ownerId !== user.clerkId) throw new Error("Can only edit own diagrams");
-    if (user.role === "viewer") throw new Error("Viewers cannot edit");
+    if (diagram.ownerId !== user.clerkId) throw new Error("Can only edit your own diagrams");
     const updates: any = { updatedAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
     if (args.blocks !== undefined) updates.blocks = args.blocks;
@@ -44,53 +46,53 @@ export const update = mutation({
   },
 });
 
+// Only owner (user role) can delete their own diagrams
 export const remove = mutation({
   args: { diagramId: v.id("diagrams") },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
+    if (user.role !== "user") throw new Error("Only users can delete diagrams");
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
-    if (user.role !== "it_admin" && diagram.ownerId !== user.clerkId) throw new Error("Can only delete own diagrams");
-    if (user.role === "viewer") throw new Error("Viewers cannot delete");
+    if (diagram.ownerId !== user.clerkId) throw new Error("Can only delete your own diagrams");
     await ctx.db.delete(args.diagramId);
     await logAction(ctx, { action: "diagram_deleted", actorId: user.clerkId, actorName: user.name, actorEmail: user.email, targetType: "diagram", targetId: args.diagramId, targetName: diagram.name });
   },
 });
 
-// Submit for approval — notifies all approvers
+// Only owner (user role) can submit for approval
 export const submit = mutation({
   args: { diagramId: v.id("diagrams") },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
+    if (user.role !== "user") throw new Error("Only users can submit diagrams");
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
-    if (diagram.ownerId !== user.clerkId && user.role !== "it_admin") throw new Error("Only owner can submit");
+    if (diagram.ownerId !== user.clerkId) throw new Error("Can only submit your own diagrams");
 
     await ctx.db.patch(args.diagramId, { status: "submitted", updatedAt: Date.now() });
 
-    // Notify all approvers and IT admins
+    // Notify all approvers (not IT admins — they don't review)
     const allUsers = await ctx.db.query("users").collect();
-    const approvers = allUsers.filter((u) => u.role === "approver" || u.role === "it_admin");
+    const approvers = allUsers.filter((u) => u.role === "approver");
     for (const approver of approvers) {
-      if (approver.clerkId !== user.clerkId) {
-        await ctx.db.insert("notifications", {
-          userId: approver.clerkId, type: "submitted",
-          diagramId: args.diagramId, diagramName: diagram.name,
-          actorName: user.name, read: false, createdAt: Date.now(),
-        });
-      }
+      await ctx.db.insert("notifications", {
+        userId: approver.clerkId, type: "submitted",
+        diagramId: args.diagramId, diagramName: diagram.name,
+        actorName: user.name, read: false, createdAt: Date.now(),
+      });
     }
 
     await logAction(ctx, { action: "diagram_submitted", actorId: user.clerkId, actorName: user.name, actorEmail: user.email, targetType: "diagram", targetId: args.diagramId, targetName: diagram.name });
   },
 });
 
-// Approve or reject — rejection requires comment, both create notification for owner
+// Only "approver" role can approve/reject
 export const review = mutation({
   args: { diagramId: v.id("diagrams"), decision: v.string(), comment: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
-    if (user.role !== "approver" && user.role !== "it_admin") throw new Error("Only approvers can review");
+    if (user.role !== "approver") throw new Error("Only approvers can review diagrams");
     if (!["approved", "rejected"].includes(args.decision)) throw new Error("Invalid decision");
     if (args.decision === "rejected" && (!args.comment || !args.comment.trim())) throw new Error("Rejection reason is required");
 
@@ -127,14 +129,15 @@ export const review = mutation({
   },
 });
 
-// Revise a rejected diagram — resets to draft for editing and resubmission
+// Only owner (user role) can revise rejected diagrams
 export const revise = mutation({
   args: { diagramId: v.id("diagrams") },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
+    if (user.role !== "user") throw new Error("Only users can revise diagrams");
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
-    if (diagram.ownerId !== user.clerkId && user.role !== "it_admin") throw new Error("Only owner can revise");
+    if (diagram.ownerId !== user.clerkId) throw new Error("Can only revise your own diagrams");
     if (diagram.status !== "rejected") throw new Error("Only rejected diagrams can be revised");
 
     await ctx.db.patch(args.diagramId, {
@@ -158,6 +161,11 @@ export const listOwn = query({
   },
 });
 
+// Role-based visibility:
+// IT Admin: sees all diagrams (for audit/oversight, but cannot act on them)
+// User: sees only own diagrams
+// Approver: sees submitted diagrams (to review) + approved ones + own (if any legacy)
+// Viewer: sees only approved diagrams
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
@@ -167,8 +175,8 @@ export const listAll = query({
     if (!user) return [];
     const all = await ctx.db.query("diagrams").order("desc").collect();
     switch (user.role) {
-      case "it_admin": return all;
-      case "approver": return all.filter((d) => d.status === "submitted" || d.status === "approved" || d.ownerId === user.clerkId);
+      case "it_admin": return all; // oversight only
+      case "approver": return all.filter((d) => d.status === "submitted" || d.status === "approved");
       case "user": return all.filter((d) => d.ownerId === user.clerkId);
       case "viewer": return all.filter((d) => d.status === "approved");
       default: return [];
@@ -187,6 +195,7 @@ export const get = query({
     if (!diagram) return null;
     if (user.role === "viewer" && diagram.status !== "approved") return null;
     if (user.role === "user" && diagram.ownerId !== user.clerkId) return null;
+    if (user.role === "approver" && diagram.status !== "submitted" && diagram.status !== "approved") return null;
     return diagram;
   },
 });

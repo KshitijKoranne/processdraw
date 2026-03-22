@@ -49,6 +49,9 @@ export default function ProcessDrawApp() {
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
 
+  // IT Admin always sees admin panel — they don't create or approve diagrams
+  if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
+
   if (showAdmin && currentUser.role === "it_admin") return <AdminPanel onBack={() => setShowAdmin(false)} />;
 
   const cloud = {
@@ -78,9 +81,10 @@ export default function ProcessDrawApp() {
       await reviewDiagram({ diagramId: id as any, decision, comment });
     },
     onRevise: async (id: string) => { await reviseDiagram({ diagramId: id as any }); },
-    isAdmin: currentUser.role === "it_admin",
-    isApprover: currentUser.role === "approver" || currentUser.role === "it_admin",
-    canEdit: currentUser.role !== "viewer",
+    isAdmin: false, // IT Admin never reaches here
+    isApprover: currentUser.role === "approver",
+    canEdit: currentUser.role === "user", // only user role can create/edit
+    canCreate: currentUser.role === "user", // only user role can create new diagrams
     onShowAdmin: () => setShowAdmin(true),
     UserButton: <UserButton />,
     // Notifications

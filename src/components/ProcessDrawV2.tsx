@@ -321,7 +321,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           {isCloud&&<button onClick={cloud.onToggleNotifications} title="Notifications" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY,position:"relative"}}>
             🔔{cloud.unreadCount>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#c47a6a",color:"#fff",fontSize:8,fontWeight:700,borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{cloud.unreadCount}</span>}
           </button>}
-          {blocks.length>0&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
+          {blocks.length>0&&(!isCloud||cloud.canCreate)&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
           {frozen&&<><button onClick={handleUnfreeze} style={{...btnS(C.bg,C.text,`1px solid ${C.border}`),padding:"5px 12px"}}>Edit</button>
             {isCloud&&currentDiagramId&&cloud.canEdit&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>Submit for Approval</button>}
             <button onClick={exportPages} disabled={exporting} style={{...btnS(C.accent,"#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>{exporting?"...":numPages>1?`Export (${numPages} pg)`:"Export PNG"}</button>
@@ -331,12 +331,21 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
 
       <div style={{flex:1,overflow:"auto",background:C.bg}}>
         {blocks.length===0?(<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:12}}>
-          <div style={{fontSize:28,fontWeight:700,color:C.text,fontFamily:HEADING,letterSpacing:-0.5}}>Process Flow Diagrams</div>
-          <div style={{fontSize:14,color:C.textMuted,marginBottom:6}}>Clean, standardized PFDs for pharma API manufacturing</div>
-          <button onClick={()=>setModal({type:"new"})} style={{width:52,height:52,borderRadius:"50%",background:C.accent,border:"none",color:"white",fontSize:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(61,139,139,0.3)",transition:"transform 0.15s"}} onMouseEnter={(e)=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={(e)=>e.currentTarget.style.transform="scale(1)"}>+</button>
-          <div style={{fontSize:11,color:C.textLight,marginTop:2}}>or</div>
-          <div style={{display:"flex",gap:8,marginTop:2}}>
-            {savedDiagrams.length>0&&<button onClick={()=>setShowHistory(true)} style={{...btnS("none",C.accent,`1px solid ${C.border}`),fontSize:11}}>Open saved ({savedDiagrams.length})</button>}
+          <div style={{fontSize:28,fontWeight:700,color:C.text,fontFamily:HEADING,letterSpacing:-0.5}}>
+            {isCloud&&cloud.role==="approver"?"Review Diagrams":isCloud&&cloud.role==="viewer"?"View Diagrams":"Process Flow Diagrams"}
+          </div>
+          <div style={{fontSize:14,color:C.textMuted,marginBottom:6}}>
+            {isCloud&&cloud.role==="approver"?"Open the sidebar to review submitted diagrams"
+              :isCloud&&cloud.role==="viewer"?"Open the sidebar to view approved diagrams"
+              :"Clean, standardized PFDs for manufacturing documentation"}
+          </div>
+          {(!isCloud||cloud.canCreate)&&<button onClick={()=>setModal({type:"new"})} style={{width:52,height:52,borderRadius:"50%",background:C.accent,border:"none",color:"white",fontSize:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(61,139,139,0.3)",transition:"transform 0.15s"}} onMouseEnter={(e)=>e.currentTarget.style.transform="scale(1.08)"} onMouseLeave={(e)=>e.currentTarget.style.transform="scale(1)"}>+</button>}
+          <div style={{display:"flex",gap:8,marginTop:6}}>
+            {savedDiagrams.length>0&&<button onClick={()=>setShowHistory(true)} style={{...btnS("none",C.accent,`1px solid ${C.border}`),fontSize:11}}>
+              {isCloud&&cloud.role==="approver"?`Review queue (${savedDiagrams.length})`
+                :isCloud&&cloud.role==="viewer"?`View diagrams (${savedDiagrams.length})`
+                :`Open saved (${savedDiagrams.length})`}
+            </button>}
             <button onClick={()=>setShowHelp(true)} style={{...btnS("none",C.textMuted,`1px solid ${C.border}`),fontSize:11}}>How to use</button></div></div>):
         (<div style={{display:"flex",justifyContent:"center",padding:"24px 0",minHeight:"100%"}}>
           <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width={totalW} height={totalH} viewBox={`0 0 ${totalW} ${totalH}`} style={{background:"white",boxShadow:"0 1px 8px rgba(44,40,36,0.07)",flexShrink:0}}>

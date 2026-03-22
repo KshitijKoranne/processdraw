@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
+import { UserButton } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
 import { useState } from "react";
 
@@ -104,7 +105,7 @@ function CreateEmployeeForm({ onSuccess }: { onSuccess: (msg: string) => void })
   );
 }
 
-export default function AdminPanel({ onBack }: { onBack: () => void }) {
+export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => void; isFullScreen?: boolean }) {
   const users = useQuery(api.users.listUsers) || [];
   const auditLogs = useQuery(api.auditLog.list, { limit: 200 }) || [];
   const updateRole = useMutation(api.users.updateUserRole);
@@ -131,12 +132,14 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
       <div style={{ padding: "12px 24px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={onBack} style={{ ...btnS(C.surfaceAlt, C.textMuted, `1px solid ${C.border}`), padding: "6px 14px", fontSize: 12 }}>← Back</button>
-        <span style={{ fontSize: 20, fontWeight: 700, fontFamily: HEADING, color: C.text }}>Administration</span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+        {!isFullScreen && <button onClick={onBack} style={{ ...btnS(C.surfaceAlt, C.textMuted, `1px solid ${C.border}`), padding: "6px 14px", fontSize: 12 }}>← Back</button>}
+        {isFullScreen && <span style={{ fontSize: 18, fontWeight: 700, fontFamily: HEADING, color: C.text }}>ProcessDraw</span>}
+        <span style={{ fontSize: isFullScreen ? 14 : 20, fontWeight: isFullScreen ? 500 : 700, fontFamily: HEADING, color: isFullScreen ? C.textMuted : C.text }}>{isFullScreen ? "— Administration" : "Administration"}</span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           {tabBtn("create", "Create Employee")}
           {tabBtn("users", "Users")}
           {tabBtn("audit", "Audit Log")}
+          {isFullScreen && <div style={{ marginLeft: 8 }}><UserButton /></div>}
         </div>
       </div>
 
