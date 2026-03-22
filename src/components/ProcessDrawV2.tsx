@@ -89,6 +89,8 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const [toast, setToast] = useState<string | null>(null); const [exporting, setExporting] = useState(false); const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({ preparedBy: "", checkedBy: "" }); const [showHistory, setShowHistory] = useState(false); const [savedDiagrams, setSavedDiagrams] = useState<any[]>([]);
   const [saveName, setSaveName] = useState(""); const [showSaveInput, setShowSaveInput] = useState(false); const [showHelp, setShowHelp] = useState(false); const svgRef = useRef<SVGSVGElement>(null);
+  const [rejectModal, setRejectModal] = useState<any>(null); // { diagramId, diagramName }
+  const [rejectComment, setRejectComment] = useState("");
 
   // Cloud mode: diagrams come from cloud prop; Local mode: localStorage
   const isCloud = !!cloud;
@@ -129,9 +131,15 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     }
   };
 
-  const reviewDiagram = async (id: string, decision: string) => {
+  const reviewDiagram = async (id: string, decision: string, comment?: string) => {
     if (isCloud) {
-      try { await cloud.onReview(id, decision); showT(decision === "approved" ? "Approved!" : "Rejected"); } catch (e: any) { showT(e.message || "Review failed"); }
+      try { await cloud.onReview(id, decision, comment); showT(decision === "approved" ? "Approved!" : "Rejected"); } catch (e: any) { showT(e.message || "Review failed"); }
+    }
+  };
+
+  const reviseDiagram = async (id: string) => {
+    if (isCloud && cloud.onRevise) {
+      try { await cloud.onRevise(id); showT("Diagram reverted to draft — edit and resubmit"); } catch (e: any) { showT(e.message || "Revise failed"); }
     }
   };
   const showT = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2200); };
@@ -225,13 +233,15 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
               {!isCloud&&d.savedAt&&` · ${new Date(d.savedAt).toLocaleDateString()}`}
               {isCloud&&d.updatedAt&&` · ${new Date(d.updatedAt).toLocaleDateString()}`}
             </div>
-            {isCloud&&d.status&&<div style={{display:"inline-block",fontSize:9,color:"#fff",background:statusColor,padding:"1px 6px",borderRadius:8,marginTop:3,fontWeight:600,textTransform:"uppercase"}}>{d.status}</div>}
+            {isCloud&&d.status&&<div style={{display:"inline-block",fontSize:9,color:"#fff",background:statusColor,padding:"1px 6px",borderRadius:8,marginTop:3,fontWeight:600,textTransform:"uppercase"}}>{d.status}{d.revisionCount>0&&` (rev ${d.revisionCount})`}</div>}
+            {isCloud&&d.status==="rejected"&&d.rejectionComment&&<div style={{fontSize:10,color:"#c47a6a",marginTop:3,lineHeight:1.4,fontStyle:"italic"}}>Reason: {d.rejectionComment}{d.rejectedByName&&` — ${d.rejectedByName}`}</div>}
           </div>
           <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
             {isCloud&&cloud.isApprover&&d.status==="submitted"&&<>
               <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"approved");}} style={{background:"#5a9e7a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✓</button>
-              <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"rejected");}} style={{background:"#c47a6a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✗</button>
+              <button onClick={(e)=>{e.stopPropagation();setRejectModal({diagramId:d._id,diagramName:d.name});setRejectComment("");}} style={{background:"#c47a6a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✗</button>
             </>}
+            {isCloud&&d.isOwn&&d.status==="rejected"&&<button onClick={(e)=>{e.stopPropagation();reviseDiagram(d._id);}} style={{background:"#e8a040",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>Revise</button>}
             {(isCloud?d.isOwn||cloud.isAdmin:true)&&<button onClick={(e)=>{e.stopPropagation();deleteDiagram(d._id||d.id);}} style={{background:"none",border:"none",color:C.textLight,cursor:"pointer",fontSize:14}}>×</button>}
           </div></div></div>);})}</div></div>)}
 
@@ -248,6 +258,9 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           <button onClick={()=>setShowHelp(true)} title="Help" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>?</button>
           <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>⚙</button>
           {isCloud&&cloud.isAdmin&&<button onClick={cloud.onShowAdmin} title="Admin" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:11,cursor:"pointer",fontFamily:BODY}}>Users</button>}
+          {isCloud&&<button onClick={cloud.onToggleNotifications} title="Notifications" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY,position:"relative"}}>
+            🔔{cloud.unreadCount>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#c47a6a",color:"#fff",fontSize:8,fontWeight:700,borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{cloud.unreadCount}</span>}
+          </button>}
           {blocks.length>0&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
           {frozen&&<><button onClick={handleUnfreeze} style={{...btnS(C.bg,C.text,`1px solid ${C.border}`),padding:"5px 12px"}}>Edit</button>
             {isCloud&&currentDiagramId&&cloud.canEdit&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>Submit for Approval</button>}
@@ -274,6 +287,59 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     {betweenPicker&&<PickerModal title="Add annotation near arrow" options={BETWEEN_OPTS} onPick={(id:string)=>{setBetweenPicker(null);setModal({type:"between",arrowIdx:betweenPicker.arrowIdx,side:id});}} onCancel={()=>setBetweenPicker(null)}/>}
     {showSettings&&<SettingsPanel settings={settings} onSave={saveSettings} onClose={()=>setShowSettings(false)}/>}
     {showHelp&&<HowToUse onClose={()=>setShowHelp(false)}/>}
+
+    {/* Rejection comment modal */}
+    {rejectModal&&(
+      <div style={{position:"fixed",inset:0,background:"rgba(44,40,36,0.3)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,backdropFilter:"blur(4px)"}} onClick={()=>setRejectModal(null)}>
+        <div onClick={(e)=>e.stopPropagation()} style={{background:C.surface,borderRadius:14,padding:"28px 30px",width:400,boxShadow:"0 24px 80px rgba(44,40,36,0.18)",border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:6,fontFamily:HEADING}}>Reject Diagram</div>
+          <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>"{rejectModal.diagramName}" — please provide a reason for rejection</div>
+          <textarea value={rejectComment} onChange={(e)=>setRejectComment(e.target.value)} placeholder="Reason for rejection (required)..." rows={3}
+            autoFocus style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:C.text,borderRadius:8,padding:"10px 14px",fontSize:14,fontFamily:BODY,resize:"vertical",outline:"none",boxSizing:"border-box",lineHeight:1.5}}/>
+          <div style={{display:"flex",gap:8,marginTop:16,justifyContent:"flex-end"}}>
+            <button onClick={()=>setRejectModal(null)} style={btnS(C.bg,C.textMuted,`1px solid ${C.border}`)}>Cancel</button>
+            <button onClick={async()=>{if(!rejectComment.trim()){showT("Rejection reason is required");return;} await reviewDiagram(rejectModal.diagramId,"rejected",rejectComment.trim()); setRejectModal(null);setRejectComment("");}}
+              disabled={!rejectComment.trim()} style={{...btnS(rejectComment.trim()?"#c47a6a":"#ccc","#fff"),opacity:rejectComment.trim()?1:0.5}}>Reject</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Notification panel */}
+    {isCloud&&cloud.showNotifications&&(
+      <div style={{position:"fixed",top:52,right:20,width:360,maxHeight:"70vh",background:C.surface,borderRadius:14,boxShadow:"0 12px 48px rgba(44,40,36,0.15)",border:`1px solid ${C.border}`,zIndex:900,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:14,fontWeight:600,fontFamily:HEADING}}>Notifications</span>
+          <div style={{display:"flex",gap:8}}>
+            {cloud.unreadCount>0&&<button onClick={cloud.onMarkAllRead} style={{background:"none",border:"none",color:C.accent,fontSize:11,cursor:"pointer",fontFamily:BODY}}>Mark all read</button>}
+            <button onClick={cloud.onToggleNotifications} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:16}}>×</button>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
+          {(!cloud.notifications||cloud.notifications.length===0)&&<div style={{fontSize:12,color:C.textLight,textAlign:"center",padding:24}}>No notifications yet</div>}
+          {(cloud.notifications||[]).map((n:any)=>{
+            const typeColors:any={approved:"#5a9e7a",rejected:"#c47a6a",submitted:"#d4a040"};
+            const typeLabels:any={approved:"Approved",rejected:"Rejected",submitted:"New submission"};
+            return(
+              <div key={n._id} style={{padding:"10px 12px",marginBottom:4,borderRadius:8,background:n.read?C.surface:C.accentLight,border:`1px solid ${n.read?C.border:C.accent}`,cursor:"pointer"}}
+                onClick={()=>{if(!n.read)cloud.onMarkRead(n._id);}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:600,color:C.text}}>
+                      <span style={{color:typeColors[n.type]||C.textMuted}}>{typeLabels[n.type]||n.type}</span> — {n.diagramName}
+                    </div>
+                    <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>by {n.actorName}</div>
+                    {n.comment&&<div style={{fontSize:11,color:"#c47a6a",marginTop:4,fontStyle:"italic",lineHeight:1.4}}>"{n.comment}"</div>}
+                  </div>
+                  <div style={{fontSize:9,color:C.textLight,whiteSpace:"nowrap",marginLeft:8}}>{new Date(n.createdAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
     {toast&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:C.text,color:C.surface,padding:"8px 20px",borderRadius:8,fontSize:12,fontFamily:BODY,boxShadow:"0 4px 16px rgba(44,40,36,0.25)",zIndex:999}}>{toast}</div>}
   </div>);
 }

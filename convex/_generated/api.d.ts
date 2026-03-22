@@ -10,6 +10,7 @@
 
 import type * as auditLog from "../auditLog.js";
 import type * as diagrams from "../diagrams.js";
+import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auditLog: typeof auditLog;
   diagrams: typeof diagrams;
+  notifications: typeof notifications;
   users: typeof users;
 }>;
 
