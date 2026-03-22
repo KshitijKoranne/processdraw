@@ -44,7 +44,7 @@ function PickerModal({ title, options, onPick, onCancel }: any) {
     </div></div>);
 }
 
-function PlusBtn({ x, y, size = 16, onClick, frozen }: any) { if (frozen) return null; return (<g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.4}><circle cx={x} cy={y} r={size / 2} fill="none" stroke={C.textMuted} strokeWidth={1} /><line x1={x - 3.5} y1={y} x2={x + 3.5} y2={y} stroke={C.textMuted} strokeWidth={1} /><line x1={x} y1={y - 3.5} x2={x} y2={y + 3.5} stroke={C.textMuted} strokeWidth={1} /><circle cx={x} cy={y} r={size / 2 + 6} fill="transparent" /></g>); }
+function PlusBtn({ x, y, size = 16, onClick, frozen }: any) { if (frozen) return null; return (<g className="pd-plus" style={{ cursor: "pointer" }} onClick={onClick}><circle cx={x} cy={y} r={size / 2} fill="none" stroke={C.textMuted} strokeWidth={1} /><line x1={x - 3.5} y1={y} x2={x + 3.5} y2={y} stroke={C.textMuted} strokeWidth={1} /><line x1={x} y1={y - 3.5} x2={x} y2={y + 3.5} stroke={C.textMuted} strokeWidth={1} /><circle cx={x} cy={y} r={size / 2 + 6} fill="transparent" /></g>); }
 function EndBtn({ x, y, onClick, frozen }: any) { if (frozen) return null; return (<g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.45}><rect x={x - 20} y={y - 9} width={40} height={18} rx={3} fill="none" stroke={C.danger} strokeWidth={1} /><text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontFamily={BODY} fontSize={9} fontWeight={500} fill={C.danger}>END</text></g>); }
 function DelBtn({ cx, cy, onClick }: any) { return (<g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.35}><circle cx={cx} cy={cy} r={7} fill={C.textMuted} /><text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#fff" fontFamily={BODY}>×</text><circle cx={cx} cy={cy} r={12} fill="transparent" /></g>); }
 
@@ -154,9 +154,88 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const removeBlock = (id: string) => { setBlocks((p) => p.filter((b) => b.id !== id)); };
   const handleEnd = () => setFrozen(true); const handleUnfreeze = () => setFrozen(false); const newDiag = () => { setBlocks([]); setArrowAnn({}); setFrozen(false); };
 
-  const svgToCanvas = useCallback(async (): Promise<HTMLCanvasElement | null> => { if (!svgRef.current) return null; const el = svgRef.current; const data = new XMLSerializer().serializeToString(el); const vb = el.getAttribute("viewBox")?.split(" ").map(Number) || [0,0,SVG_W,600]; const s=2; const w=vb[2]*s; const h=vb[3]*s; const cv = document.createElement("canvas"); cv.width=w; cv.height=h; const ctx=cv.getContext("2d")!; ctx.fillStyle="white"; ctx.fillRect(0,0,w,h); const img=new Image(); const blob=new Blob([data],{type:"image/svg+xml;charset=utf-8"}); const url=URL.createObjectURL(blob); return new Promise((res)=>{img.onload=()=>{ctx.drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(cv);};img.onerror=()=>{URL.revokeObjectURL(url);res(null);};img.src=url;}); }, []);
-  const exportPages = useCallback(async () => { setExporting(true); const fc=await svgToCanvas(); if(!fc){setExporting(false);return;} const s=2;const pW=SVG_W*s;const pH=A4_PAGE_H*s;const tH=fc.height;const nP=Math.ceil(tH/pH); for(let p=0;p<nP;p++){const sc=document.createElement("canvas");sc.width=pW;sc.height=Math.min(pH,tH-p*pH);const ctx=sc.getContext("2d")!;ctx.fillStyle="white";ctx.fillRect(0,0,sc.width,sc.height);ctx.drawImage(fc,0,p*pH,pW,sc.height,0,0,pW,sc.height);await new Promise<void>((r)=>{sc.toBlob((b:any)=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=nP===1?"ProcessDraw_Diagram.png":`ProcessDraw_Page_${p+1}.png`;a.click();setTimeout(r,300);},"image/png");});} showT(nP===1?"Exported!":`${nP} pages exported!`);setExporting(false); }, [svgToCanvas]);
-  const copyClip = useCallback(async () => { const fc=await svgToCanvas(); if(!fc) return; fc.toBlob(async(b:any)=>{try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);showT("Copied!");}catch(e){showT("Copy failed");};},"image/png"); }, [svgToCanvas]);
+  const svgToCanvas = useCallback(async (): Promise<HTMLCanvasElement | null> => {
+    if (!svgRef.current) return null;
+    const el = svgRef.current;
+    const data = new XMLSerializer().serializeToString(el);
+    const vb = el.getAttribute("viewBox")?.split(" ").map(Number) || [0, 0, SVG_W, 600];
+    const s = 2; const w = vb[2] * s; const h = vb[3] * s;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const ctx = cv.getContext("2d")!; ctx.fillStyle = "white"; ctx.fillRect(0, 0, w, h);
+    const img = new Image();
+    const svgBlob = new Blob([data], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    return new Promise((res) => {
+      img.onload = () => { ctx.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url); res(cv); };
+      img.onerror = () => { URL.revokeObjectURL(url); res(null); };
+      img.src = url;
+    });
+  }, []);
+
+  const exportPages = useCallback(async () => {
+    setExporting(true);
+    const fc = await svgToCanvas();
+    if (!fc) { setExporting(false); return; }
+    const s = 2; const pW = SVG_W * s; const pH = A4_PAGE_H * s;
+    const tH = fc.height; const nP = Math.ceil(tH / pH);
+    for (let p = 0; p < nP; p++) {
+      const sc = document.createElement("canvas"); sc.width = pW;
+      sc.height = Math.min(pH, tH - p * pH);
+      const ctx = sc.getContext("2d")!; ctx.fillStyle = "white"; ctx.fillRect(0, 0, sc.width, sc.height);
+      ctx.drawImage(fc, 0, p * pH, pW, sc.height, 0, 0, pW, sc.height);
+      await new Promise<void>((r) => {
+        sc.toBlob((b: any) => {
+          const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+          a.download = nP === 1 ? "ProcessDraw_Diagram.png" : `ProcessDraw_Page_${p + 1}.png`;
+          a.click(); setTimeout(r, 300);
+        }, "image/png");
+      });
+    }
+    showT(nP === 1 ? "Exported!" : `${nP} pages exported!`);
+    setExporting(false);
+  }, [svgToCanvas]);
+
+  const exportPDF = useCallback(async () => {
+    setExporting(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const fc = await svgToCanvas();
+      if (!fc) { setExporting(false); return; }
+      const s = 2; const pW = SVG_W * s; const pH = A4_PAGE_H * s;
+      const tH = fc.height; const nP = Math.ceil(tH / pH);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [SVG_W, A4_PAGE_H] });
+      for (let p = 0; p < nP; p++) {
+        if (p > 0) pdf.addPage([SVG_W, A4_PAGE_H]);
+        const sc = document.createElement("canvas"); sc.width = pW;
+        sc.height = Math.min(pH, tH - p * pH);
+        const ctx = sc.getContext("2d")!; ctx.fillStyle = "white"; ctx.fillRect(0, 0, sc.width, sc.height);
+        ctx.drawImage(fc, 0, p * pH, pW, sc.height, 0, 0, pW, sc.height);
+        const imgData = sc.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", 0, 0, SVG_W, sc.height / s);
+      }
+      pdf.save("ProcessDraw_Diagram.pdf");
+      showT("PDF exported!");
+    } catch (e) { showT("PDF export failed"); console.error(e); }
+    setExporting(false);
+  }, [svgToCanvas]);
+
+  const copyClip = useCallback(async () => {
+    const fc = await svgToCanvas();
+    if (!fc) { showT("Copy failed — no diagram"); return; }
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        fc.toBlob((b) => { if (b) resolve(b); else reject(new Error("toBlob failed")); }, "image/png");
+      });
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      showT("Copied!");
+    } catch (e) {
+      // Fallback: download as file
+      fc.toBlob((b: any) => {
+        if (b) { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "ProcessDraw_Diagram.png"; a.click(); showT("Downloaded (clipboard not available)"); }
+        else { showT("Copy failed"); }
+      }, "image/png");
+    }
+  }, [svgToCanvas]);
 
   const layout = useCallback(() => {
     const pos: any[] = [];
@@ -208,23 +287,13 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     });
 
     const dH = y + 20;
-    // Ensure footer doesn't straddle a page boundary
-    let footerY = dH + 10;
-    if (frozen) {
-      const footerPage = Math.floor(footerY / A4_PAGE_H);
-      const footerBottom = footerY + FOOTER_H;
-      const footerBottomPage = Math.floor(footerBottom / A4_PAGE_H);
-      if (footerBottomPage > footerPage) {
-        footerY = (footerPage + 1) * A4_PAGE_H + PAGE_MARGIN;
-      }
-    }
-    const finalH = frozen ? footerY + FOOTER_H + 20 : dH + 40;
-    return { pos, totalH: finalH, totalW: SVG_W, dEndY: dH, footerY };
+    const finalH = dH + 40;
+    return { pos, totalH: finalH, totalW: SVG_W, dEndY: dH };
   }, [blocks, frozen]);
-  const{pos:positions,totalH,totalW,dEndY,footerY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
+  const{pos:positions,totalH,totalW,dEndY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
 
   const renderDiagram = () => { const els:any[]=[];
-    if(blocks.length>0&&!frozen) for(let p=1;p<numPages;p++){const gy=p*A4_PAGE_H; els.push(<line key={`pg-${p}`} x1={40} y1={gy} x2={totalW-40} y2={gy} stroke={C.borderLight} strokeWidth={0.5} strokeDasharray="6 4"/>); els.push(<text key={`pl-${p}`} x={totalW-40} y={gy-5} textAnchor="end" fontFamily={BODY} fontSize={8} fill={C.textLight}>— page break —</text>);}
+    if(blocks.length>0&&!frozen) for(let p=1;p<numPages;p++){const gy=p*A4_PAGE_H; els.push(<line key={`pg-${p}`} x1={40} y1={gy} x2={totalW-40} y2={gy} stroke={C.borderLight} strokeWidth={0.5} strokeDasharray="6 4"/>); els.push(<text key={`pl-${p}`} x={totalW/2} y={gy-8} textAnchor="middle" fontFamily={BODY} fontSize={12} fill={C.textLight}>— Page Break —</text>);}
     positions.forEach((p,i)=>{ const{block,bx,by,bW,bH,textLines,lPos,rPos}=p;
       els.push(<rect key={`b-${i}`} x={bx} y={by} width={bW} height={bH} fill="white" stroke="#1a1a1a" strokeWidth={1.5} rx={1} style={{cursor:frozen?"default":"pointer"}} onClick={()=>{if(!frozen)setModal({type:"edit",blockId:block.id});}}/>);
       const tSY=by+bH/2-((textLines.length-1)*LINE_H)/2; textLines.forEach((line:string,li:number)=>{els.push(<text key={`bt-${i}-${li}`} x={bx+bW/2} y={tSY+li*LINE_H} textAnchor="middle" dominantBaseline="central" fontFamily={SVG_FONT} fontSize={13} fontWeight="600" fill="#1a1a1a" style={{pointerEvents:"none"}}>{line}</text>);});
@@ -254,17 +323,6 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
         els.push(<PlusBtn key={`pr-${i}`} x={bx+bW+SIDE_GAP/2} y={rby} size={14} onClick={()=>setPicker({blockId:block.id,side:"right"})} frozen={frozen}/>);}
       if(i===positions.length-1&&!frozen){const bY=by+bH+32;els.push(<PlusBtn key="pe" x={CANVAS_CENTER-28} y={bY} size={16} onClick={()=>setModal({type:"new"})} frozen={frozen}/>);els.push(<EndBtn key="eb" x={CANVAS_CENTER+28} y={bY} onClick={handleEnd} frozen={frozen}/>);}
     });
-    if(frozen&&blocks.length>0){const fY=footerY;const lW=140;const c1=60;const c2=SVG_W/2+30;const dt=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"});
-      els.push(<line key="fs" x1={40} y1={fY} x2={SVG_W-40} y2={fY} stroke="#ccc" strokeWidth={0.5}/>);
-      els.push(<text key="fp" x={c1} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a" fontWeight="600">Prepared by:</text>);
-      els.push(<text key="fpn" x={c1+80} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a">{settings.preparedBy||"___________"}</text>);
-      els.push(<text key="fps" x={c1} y={fY+44} fontFamily={SVG_FONT} fontSize={10} fill="#888">Sign:</text>);
-      els.push(<line key="fpsl" x1={c1+35} y1={fY+44} x2={c1+35+lW} y2={fY+44} stroke="#1a1a1a" strokeWidth={0.8}/>);
-      els.push(<text key="fc" x={c2} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a" fontWeight="600">Checked by:</text>);
-      els.push(<text key="fcn" x={c2+78} y={fY+20} fontFamily={SVG_FONT} fontSize={11} fill="#1a1a1a">{settings.checkedBy||"___________"}</text>);
-      els.push(<text key="fcs" x={c2} y={fY+44} fontFamily={SVG_FONT} fontSize={10} fill="#888">Sign:</text>);
-      els.push(<line key="fcsl" x1={c2+35} y1={fY+44} x2={c2+35+lW} y2={fY+44} stroke="#1a1a1a" strokeWidth={0.8}/>);
-      els.push(<text key="fdt" x={SVG_W-60} y={fY+20} textAnchor="end" fontFamily={SVG_FONT} fontSize={10} fill="#888">Date: {dt}</text>);}
     return els;};
 
   const handleMC=(t:string)=>{if(!modal)return;if(modal.type==="new")addBlock(t);else if(modal.type==="edit")editBlock(modal.blockId,t);else if(modal.type==="side")addSideItem(modal.blockId,modal.side,modal.sideType,t);else if(modal.type==="between")addAnn(modal.arrowIdx,modal.side,t);setModal(null);};
@@ -274,6 +332,10 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
 
   return (<div style={{display:"flex",height:"100vh",fontFamily:BODY,background:C.bg,color:C.text}}>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>{`
+      .pd-plus { opacity: 0.3; transition: opacity 0.2s; }
+      .pd-plus:hover { opacity: 0.8; }
+    `}</style>
     {showHistory&&(<div style={{width:260,background:C.sidebar,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
       <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:14,fontWeight:600,fontFamily:HEADING}}>Saved Diagrams</span><button onClick={()=>setShowHistory(false)} style={{background:"none",border:"none",color:C.textMuted,cursor:"pointer",fontSize:16}}>×</button></div>
       {blocks.length>0&&(<div style={{padding:"10px 16px",borderBottom:`1px solid ${C.borderLight}`}}>
@@ -324,7 +386,8 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           {blocks.length>0&&(!isCloud||cloud.canCreate)&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
           {frozen&&<><button onClick={handleUnfreeze} style={{...btnS(C.bg,C.text,`1px solid ${C.border}`),padding:"5px 12px"}}>Edit</button>
             {isCloud&&currentDiagramId&&cloud.canEdit&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>Submit for Approval</button>}
-            <button onClick={exportPages} disabled={exporting} style={{...btnS(C.accent,"#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>{exporting?"...":numPages>1?`Export (${numPages} pg)`:"Export PNG"}</button>
+            <button onClick={exportPages} disabled={exporting} style={{...btnS(C.accent,"#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>{exporting?"...":numPages>1?`PNG (${numPages} pg)`:"Export PNG"}</button>
+            <button onClick={exportPDF} disabled={exporting} style={{...btnS("#6a5acd","#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>PDF</button>
             <button onClick={copyClip} style={{...btnS(C.success,"#fff"),padding:"5px 14px"}}>Copy</button></>}
           {isCloud&&cloud.UserButton&&<div style={{marginLeft:4}}>{cloud.UserButton}</div>}
         </div></div>
