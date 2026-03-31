@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient, auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../convex/_generated/api";
 
-const convex = new ConvexHttpClient(
-  process.env.NEXT_PUBLIC_CONVEX_URL || ""
-);
+// We'll call Convex HTTP API directly instead of using the client SDK
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,11 +44,30 @@ export async function POST(req: NextRequest) {
       lastName: fullName.split(" ").slice(1).join(" ") || "",
     });
 
+    // Pre-register in Convex with correct name and role
+    try {
+      await fetch(`${CONVEX_URL}/api/mutation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "users:preRegister",
+          args: {
+            clerkId: newUser.id,
+            name: fullName,
+            employeeCode: employeeCode,
+            role: role || "user",
+          },
+        }),
+      });
+    } catch (convexErr) {
+      console.error("Convex pre-register failed:", convexErr);
+    }
+
     return NextResponse.json({
       success: true,
       userId: newUser.id,
       username: employeeCode,
-      message: `Employee ${employeeCode} created successfully`,
+      message: `Employee ${employeeCode} (${fullName}) created as ${role || "user"}`,
     });
   } catch (error: any) {
     console.error("Create employee error:", error);

@@ -161,7 +161,7 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
               <div key={user._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", marginBottom: 6, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}` }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user.name}</div>
-                  <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>{user.email || "No email"}</div>
+                  <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Employee Code: {user.email || "—"}</div>
                 </div>
                 <select value={user.role} onChange={(e) => handleRoleChange(user._id, e.target.value)} disabled={updating === user._id}
                   style={{ background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 12px", fontSize: 13, fontFamily: BODY, cursor: updating === user._id ? "wait" : "pointer", outline: "none" }}>
