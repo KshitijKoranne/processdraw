@@ -9,6 +9,8 @@
  */
 
 import type * as auditLog from "../auditLog.js";
+import type * as crons from "../crons.js";
+import type * as demoData from "../demoData.js";
 import type * as diagrams from "../diagrams.js";
 import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
@@ -21,6 +23,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auditLog: typeof auditLog;
+  crons: typeof crons;
+  demoData: typeof demoData;
   diagrams: typeof diagrams;
   notifications: typeof notifications;
   users: typeof users;

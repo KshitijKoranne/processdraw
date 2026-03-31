@@ -8,6 +8,8 @@ export default defineSchema({
     name: v.string(),
     role: v.string(),
     imageUrl: v.optional(v.string()),
+    disabled: v.optional(v.boolean()),
+    isDemo: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkId"])
@@ -21,7 +23,7 @@ export default defineSchema({
     blocks: v.string(),
     arrowAnnotations: v.string(),
     settings: v.string(),
-    status: v.string(),          // "draft" | "submitted" | "approved" | "rejected"
+    status: v.string(),
     approvedBy: v.optional(v.string()),
     approvedByName: v.optional(v.string()),
     approvedAt: v.optional(v.number()),
@@ -29,7 +31,8 @@ export default defineSchema({
     rejectedByName: v.optional(v.string()),
     rejectionComment: v.optional(v.string()),
     rejectedAt: v.optional(v.number()),
-    revisionCount: v.optional(v.number()),  // tracks how many times resubmitted
+    revisionCount: v.optional(v.number()),
+    isDemo: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

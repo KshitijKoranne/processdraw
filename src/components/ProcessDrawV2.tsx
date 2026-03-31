@@ -394,6 +394,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           <button onClick={()=>setShowHistory(!showHistory)} title="Saved" style={{background:showHistory?C.accentLight:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:13,cursor:"pointer",fontFamily:BODY}}>☰</button>
           <span style={{fontSize:18,fontWeight:700,fontFamily:HEADING,letterSpacing:-0.5}}>ProcessDraw</span>
           <span style={{fontSize:10,color:C.textLight,fontWeight:400}}>by KJR Labs</span>
+          {isCloud&&cloud.isDemo&&<span style={{fontSize:9,color:"#fff",background:"#d4a040",padding:"2px 10px",borderRadius:10,fontWeight:600,letterSpacing:0.5,fontFamily:BODY}}>DEMO — Data resets daily</span>}
           {isCloud&&cloud.role&&<span style={{fontSize:9,color:C.accent,background:C.accentLight,padding:"2px 8px",borderRadius:10,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,fontFamily:BODY}}>{cloud.role.replace("_"," ")}</span>}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>

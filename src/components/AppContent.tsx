@@ -153,6 +153,34 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* Try Demo */}
+      <section style={{ padding: "64px 40px", background: C.surface, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700, fontFamily: H, margin: "0 0 8px" }}>Try It Yourself</h2>
+          <p style={{ fontSize: 14, color: C.mid, margin: "0 0 8px" }}>Explore ProcessDraw with a demo account — no sign-up required. Data resets daily.</p>
+          <p style={{ fontSize: 11, color: C.light, margin: "0 0 28px" }}>Password for all demo accounts: <strong style={{ color: C.mid }}>demo1234</strong></p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            {[
+              { code: "demo_user", role: "User", desc: "Create diagrams, submit for approval", color: C.accent },
+              { code: "demo_approver", role: "Approver", desc: "Review and approve submitted diagrams", color: "#d4a040" },
+              { code: "demo_admin", role: "IT Admin", desc: "Manage users, view audit trail", color: "#6a5acd" },
+              { code: "demo_viewer", role: "Viewer", desc: "View approved diagrams (read-only)", color: "#8a8078" },
+            ].map((d, i) => (
+              <div key={i} style={{ padding: "20px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bg, textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: d.color, marginBottom: 4 }}>{d.role}</div>
+                <div style={{ fontSize: 11, color: C.mid, lineHeight: 1.5, marginBottom: 12, minHeight: 32 }}>{d.desc}</div>
+                <div style={{ fontSize: 11, color: C.light, marginBottom: 12 }}>Username: <strong style={{ color: C.text }}>{d.code}</strong></div>
+                <SignInButton mode="modal">
+                  <button style={{ background: d.color, border: "none", color: "#fff", borderRadius: 8, padding: "8px 20px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: B, width: "100%" }}>
+                    Try as {d.role}
+                  </button>
+                </SignInButton>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section style={{ padding: "64px 40px 80px", textAlign: "center" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", background: C.surface, borderRadius: 20, padding: "48px 40px", border: `1px solid ${C.border}`, boxShadow: "0 4px 24px rgba(44,40,36,0.06)" }}>

@@ -109,6 +109,7 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
   const users = useQuery(api.users.listUsers) || [];
   const auditLogs = useQuery(api.auditLog.list, { limit: 200 }) || [];
   const updateRole = useMutation(api.users.updateUserRole);
+  const toggleDisabled = useMutation(api.users.toggleDisabled);
   const [updating, setUpdating] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "create" | "audit">("users");
   const [toast, setToast] = useState<string | null>(null);
@@ -116,6 +117,12 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
   const handleRoleChange = async (userId: any, role: string) => {
     setUpdating(userId);
     try { await updateRole({ userId, role }); } catch (e) { console.error(e); }
+    setUpdating(null);
+  };
+
+  const handleToggleDisabled = async (userId: any, disabled: boolean) => {
+    setUpdating(userId);
+    try { await toggleDisabled({ userId, disabled }); } catch (e) { console.error(e); }
     setUpdating(null);
   };
 
@@ -158,15 +165,24 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
               <strong>Viewer:</strong> Read-only
             </div>
             {users.map((user: any) => (
-              <div key={user._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", marginBottom: 6, borderRadius: 10, background: C.surface, border: `1px solid ${C.border}` }}>
+              <div key={user._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", marginBottom: 6, borderRadius: 10, background: user.disabled ? "#fdf5f3" : C.surface, border: `1px solid ${user.disabled ? "#e8c4bc" : C.border}`, opacity: user.disabled ? 0.7 : 1 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user.name}</span>
+                    {user.disabled && <span style={{ fontSize: 9, color: "#fff", background: C.danger, padding: "1px 6px", borderRadius: 8, fontWeight: 600, textTransform: "uppercase" as any }}>Disabled</span>}
+                  </div>
                   <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Employee Code: {user.email || "—"}</div>
                 </div>
-                <select value={user.role} onChange={(e) => handleRoleChange(user._id, e.target.value)} disabled={updating === user._id}
-                  style={{ background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 12px", fontSize: 13, fontFamily: BODY, cursor: updating === user._id ? "wait" : "pointer", outline: "none" }}>
-                  {ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
-                </select>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <select value={user.role} onChange={(e) => handleRoleChange(user._id, e.target.value)} disabled={updating === user._id || user.disabled}
+                    style={{ background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 12px", fontSize: 13, fontFamily: BODY, cursor: updating === user._id ? "wait" : "pointer", outline: "none" }}>
+                    {ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
+                  </select>
+                  <button onClick={() => handleToggleDisabled(user._id, !user.disabled)} disabled={updating === user._id}
+                    style={{ background: user.disabled ? C.success : C.danger, border: "none", color: "#fff", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: BODY, minWidth: 65 }}>
+                    {user.disabled ? "Enable" : "Disable"}
+                  </button>
+                </div>
               </div>
             ))}
             {users.length === 0 && <div style={{ textAlign: "center", padding: 40, color: C.textLight }}>Loading users...</div>}

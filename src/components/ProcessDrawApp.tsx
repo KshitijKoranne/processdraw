@@ -23,6 +23,7 @@ export default function ProcessDrawApp() {
   const submitDiagram = useMutation(api.diagrams.submit);
   const reviewDiagram = useMutation(api.diagrams.review);
   const reviseDiagram = useMutation(api.diagrams.revise);
+  const isDemoUser = useQuery(api.demoData.isDemoUser);
   const notifications = useQuery(api.notifications.list);
   const unreadCount = useQuery(api.notifications.unreadCount);
   const markRead = useMutation(api.notifications.markRead);
@@ -48,6 +49,22 @@ export default function ProcessDrawApp() {
   if (!isClerkLoaded || !isSignedIn) return <LoadingScreen message="Authenticating..." />;
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
+
+  // Disabled user screen
+  if (currentUser.disabled) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}>
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+        <div style={{ textAlign: "center", maxWidth: 400 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div>
+          <div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>
+            Your account has been disabled by an administrator. Please contact your IT Admin for assistance.
+          </div>
+          <UserButton />
+        </div>
+      </div>
+    );
+  }
 
   // IT Admin always sees admin panel — they don't create or approve diagrams
   if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
@@ -94,6 +111,7 @@ export default function ProcessDrawApp() {
     onToggleNotifications: () => setShowNotifications(!showNotifications),
     onMarkRead: async (id: string) => { await markRead({ notificationId: id as any }); },
     onMarkAllRead: async () => { await markAllRead(); },
+    isDemo: isDemoUser || false,
   };
 
   return <ProcessDrawV2 cloud={cloud} />;

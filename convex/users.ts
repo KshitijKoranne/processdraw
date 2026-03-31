@@ -20,7 +20,6 @@ export const upsertUser = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    // Build name from available JWT fields
     const buildName = () => {
       if (identity.name && identity.name !== "User") return identity.name;
       const parts = [identity.givenName, identity.familyName].filter(Boolean);
@@ -35,6 +34,7 @@ export const upsertUser = mutation({
       .unique();
 
     if (existing) {
+      // Don't update disabled users' info, just log and return
       const resolvedName = buildName();
       await ctx.db.patch(existing._id, {
         name: resolvedName !== "User" ? resolvedName : existing.name,
@@ -47,12 +47,12 @@ export const upsertUser = mutation({
         actorId: existing.clerkId,
         actorName: existing.name,
         actorEmail: existing.email,
+        details: existing.disabled ? JSON.stringify({ blocked: true }) : undefined,
       });
 
       return existing._id;
     }
 
-    // New user — first user becomes IT Admin
     const allUsers = await ctx.db.query("users").collect();
     const role = allUsers.length === 0 ? "it_admin" : "user";
     const name = buildName();
@@ -60,21 +60,16 @@ export const upsertUser = mutation({
 
     const id = await ctx.db.insert("users", {
       clerkId: identity.subject,
-      email,
-      name,
-      role,
+      email, name, role,
       imageUrl: identity.pictureUrl,
+      disabled: false,
       createdAt: Date.now(),
     });
 
     await logAction(ctx, {
       action: "user_created",
-      actorId: identity.subject,
-      actorName: name,
-      actorEmail: email,
-      targetType: "user",
-      targetId: identity.subject,
-      targetName: name,
+      actorId: identity.subject, actorName: name, actorEmail: email,
+      targetType: "user", targetId: identity.subject, targetName: name,
       details: JSON.stringify({ role, isFirstUser: allUsers.length === 0 }),
     });
 
@@ -101,73 +96,64 @@ export const updateUserRole = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
+    const currentUser = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject)).unique();
     if (!currentUser || currentUser.role !== "it_admin") throw new Error("Only IT Admins can change roles");
-
     const validRoles = ["it_admin", "user", "approver", "viewer"];
     if (!validRoles.includes(args.role)) throw new Error("Invalid role");
-
     const targetUser = await ctx.db.get(args.userId);
     if (!targetUser) throw new Error("User not found");
-
     const oldRole = targetUser.role;
     await ctx.db.patch(args.userId, { role: args.role });
-
     await logAction(ctx, {
-      action: "role_changed",
-      actorId: currentUser.clerkId,
-      actorName: currentUser.name,
-      actorEmail: currentUser.email,
-      targetType: "user",
-      targetId: targetUser.clerkId,
-      targetName: targetUser.name,
+      action: "role_changed", actorId: currentUser.clerkId, actorName: currentUser.name, actorEmail: currentUser.email,
+      targetType: "user", targetId: targetUser.clerkId, targetName: targetUser.name,
       details: JSON.stringify({ oldRole, newRole: args.role }),
     });
   },
 });
 
-// Pre-register a user from create-employee API (sets name and role before first login)
-export const preRegister = mutation({
-  args: {
-    clerkId: v.string(),
-    name: v.string(),
-    employeeCode: v.string(),
-    role: v.string(),
-  },
+// Disable/Enable employee
+export const toggleDisabled = mutation({
+  args: { userId: v.id("users"), disabled: v.boolean() },
   handler: async (ctx, args) => {
-    // Check if already exists
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
-      .unique();
-    if (existing) return existing._id;
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject)).unique();
+    if (!currentUser || currentUser.role !== "it_admin") throw new Error("Only IT Admins can disable/enable users");
 
-    const validRoles = ["it_admin", "user", "approver", "viewer"];
-    if (!validRoles.includes(args.role)) throw new Error("Invalid role");
+    const targetUser = await ctx.db.get(args.userId);
+    if (!targetUser) throw new Error("User not found");
 
-    const id = await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      email: args.employeeCode, // use employee code as identifier
-      name: args.name,
-      role: args.role,
-      createdAt: Date.now(),
-    });
+    // Prevent disabling yourself
+    if (targetUser.clerkId === currentUser.clerkId) throw new Error("Cannot disable yourself");
+
+    await ctx.db.patch(args.userId, { disabled: args.disabled });
 
     await logAction(ctx, {
-      action: "employee_created",
-      actorId: args.clerkId,
-      actorName: args.name,
-      actorEmail: args.employeeCode,
-      targetType: "user",
-      targetId: args.clerkId,
-      targetName: args.name,
+      action: args.disabled ? "user_disabled" : "user_enabled",
+      actorId: currentUser.clerkId, actorName: currentUser.name, actorEmail: currentUser.email,
+      targetType: "user", targetId: targetUser.clerkId, targetName: targetUser.name,
+    });
+  },
+});
+
+// Pre-register a user from create-employee API
+export const preRegister = mutation({
+  args: { clerkId: v.string(), name: v.string(), employeeCode: v.string(), role: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId)).unique();
+    if (existing) return existing._id;
+    const validRoles = ["it_admin", "user", "approver", "viewer"];
+    if (!validRoles.includes(args.role)) throw new Error("Invalid role");
+    const id = await ctx.db.insert("users", {
+      clerkId: args.clerkId, email: args.employeeCode, name: args.name, role: args.role,
+      disabled: false, createdAt: Date.now(),
+    });
+    await logAction(ctx, {
+      action: "employee_created", actorId: args.clerkId, actorName: args.name, actorEmail: args.employeeCode,
+      targetType: "user", targetId: args.clerkId, targetName: args.name,
       details: JSON.stringify({ role: args.role, employeeCode: args.employeeCode }),
     });
-
     return id;
   },
 });
