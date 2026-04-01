@@ -89,8 +89,8 @@ export default function ProcessDrawApp() {
     })),
     onSave: async (name: string, blocks: any, annotations: any, settings: any, existingId?: string) => {
       const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(settings) };
-      if (existingId) { await updateDiagram({ diagramId: existingId as any, ...data }); }
-      else { await createDiagram(data); }
+      if (existingId) { await updateDiagram({ diagramId: existingId as any, ...data }); return existingId; }
+      else { const newId = await createDiagram(data); return newId as string; }
     },
     onDelete: async (id: string) => { await removeDiagram({ diagramId: id as any }); },
     onSubmit: async (id: string) => { await submitDiagram({ diagramId: id as any }); },

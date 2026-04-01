@@ -106,7 +106,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
 
   const saveDiagram = async (name: string) => {
     if (isCloud) {
-      try { await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); setCurrentDiagramName(name); showT(`Saved "${name}"`); }
+      try { const savedId = await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); setCurrentDiagramName(name); if (savedId && !currentDiagramId) setCurrentDiagramId(savedId as string); showT(`Saved "${name}"`); }
       catch (e: any) { showT(e.message || "Save failed"); }
     } else {
       const d = { id: uid(), name, blocks, arrowAnnotations: arrowAnn, savedAt: new Date().toISOString() };
