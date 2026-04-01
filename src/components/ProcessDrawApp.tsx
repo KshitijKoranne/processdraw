@@ -60,7 +60,7 @@ export default function ProcessDrawApp() {
           <div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>
             Your account has been disabled by an administrator. Please contact your IT Admin for assistance.
           </div>
-          <UserButton />
+          <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />
         </div>
       </div>
     );
@@ -103,7 +103,7 @@ export default function ProcessDrawApp() {
     canEdit: currentUser.role === "user", // only user role can create/edit
     canCreate: currentUser.role === "user", // only user role can create new diagrams
     onShowAdmin: () => setShowAdmin(true),
-    UserButton: <UserButton />,
+    UserButton: <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />,
     // Notifications
     notifications: notifications || [],
     unreadCount: unreadCount || 0,

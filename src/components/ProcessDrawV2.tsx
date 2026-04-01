@@ -95,6 +95,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   // Cloud mode: diagrams come from cloud prop; Local mode: localStorage
   const isCloud = !!cloud;
   const [currentDiagramId, setCurrentDiagramId] = useState<string | null>(null);
+  const [currentDiagramName, setCurrentDiagramName] = useState<string>("");
   const [currentDiagramStatus, setCurrentDiagramStatus] = useState<string>("draft");
   const [currentDiagramMeta, setCurrentDiagramMeta] = useState<any>(null); // { ownerName, approvedByName }
 
@@ -105,7 +106,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
 
   const saveDiagram = async (name: string) => {
     if (isCloud) {
-      try { await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); showT(`Saved "${name}"`); }
+      try { await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); setCurrentDiagramName(name); showT(`Saved "${name}"`); }
       catch (e: any) { showT(e.message || "Save failed"); }
     } else {
       const d = { id: uid(), name, blocks, arrowAnnotations: arrowAnn, savedAt: new Date().toISOString() };
@@ -119,6 +120,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     setBlocks(d.blocks || []); setArrowAnn(d.arrowAnnotations || {});
     if (d.settings) setSettings(d.settings);
     if (d._id) setCurrentDiagramId(d._id);
+    setCurrentDiagramName(d.name || "");
     setCurrentDiagramStatus(d.status || "draft");
     setCurrentDiagramMeta({ ownerName: d.ownerName || cloud?.userName, approvedByName: d.approvedByName });
     setFrozen(false); setShowHistory(false); showT(`Loaded "${d.name}"`);
@@ -156,7 +158,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const toggleArrow = (bid: string, side: string, ii: number) => { if (frozen) return; setBlocks((p) => p.map((b) => { if (b.id !== bid) return b; const k = side === "left" ? "leftItems" : "rightItems"; const items = [...b[k]]; items[ii] = { ...items[ii], arrowDir: items[ii].arrowDir === "left" ? "right" : "left" }; return { ...b, [k]: items }; })); };
   const removeSI = (bid: string, side: string, ii: number) => { setBlocks((p) => p.map((b) => { if (b.id !== bid) return b; const k = side === "left" ? "leftItems" : "rightItems"; return { ...b, [k]: b[k].filter((_: any, i: number) => i !== ii) }; })); };
   const removeBlock = (id: string) => { setBlocks((p) => p.filter((b) => b.id !== id)); };
-  const handleEnd = () => setFrozen(true); const handleUnfreeze = () => setFrozen(false); const newDiag = () => { setBlocks([]); setArrowAnn({}); setFrozen(false); setCurrentDiagramId(null); setCurrentDiagramStatus("draft"); setCurrentDiagramMeta(null); };
+  const handleEnd = () => setFrozen(true); const handleUnfreeze = () => setFrozen(false); const newDiag = () => { setBlocks([]); setArrowAnn({}); setFrozen(false); setCurrentDiagramId(null); setCurrentDiagramName(""); setCurrentDiagramStatus("draft"); setCurrentDiagramMeta(null); };
 
   const svgToCanvas = useCallback(async (): Promise<HTMLCanvasElement | null> => {
     if (!svgRef.current) return null;
@@ -415,7 +417,14 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           {isCloud&&cloud.role&&<span style={{fontSize:9,color:C.accent,background:C.accentLight,padding:"2px 8px",borderRadius:10,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,fontFamily:BODY}}>{cloud.role.replace("_"," ")}</span>}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {blocks.length>0&&!frozen&&<span style={{fontSize:10,color:C.textLight,marginRight:4}}>Click blocks to edit · Arrows to toggle · END to finalize</span>}
+          {isCloud&&cloud.canEdit&&blocks.length>0&&!frozen&&(
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:10,color:C.textLight}}>Click blocks to edit · Arrows to toggle · END to finalize</span>
+              <button onClick={()=>{if(currentDiagramId&&currentDiagramName){saveDiagram(currentDiagramName);}else{setShowSaveInput(true);setShowHistory(true);}}} style={{...btnS(C.accent,"#fff"),padding:"4px 12px",fontSize:11}}>💾 Save</button>
+              {currentDiagramId&&currentDiagramStatus==="draft"&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"4px 12px",fontSize:11}}>↑ Submit for Approval</button>}
+            </div>
+          )}
+          {(!isCloud||!cloud.canEdit)&&blocks.length>0&&!frozen&&<span style={{fontSize:10,color:C.textLight,marginRight:4}}>Click blocks to edit · Arrows to toggle · END to finalize</span>}
           <button onClick={()=>setShowHelp(true)} title="Help" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>?</button>
           <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>⚙</button>
           {isCloud&&cloud.isAdmin&&<button onClick={cloud.onShowAdmin} title="Admin" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:11,cursor:"pointer",fontFamily:BODY}}>Users</button>}
@@ -424,7 +433,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
           </button>}
           {blocks.length>0&&(!isCloud||cloud.canCreate)&&<button onClick={newDiag} style={{...btnS("none",C.danger,`1px solid ${C.border}`),padding:"4px 10px",fontSize:11}}>New</button>}
           {frozen&&<><button onClick={handleUnfreeze} style={{...btnS(C.bg,C.text,`1px solid ${C.border}`),padding:"5px 12px"}}>Edit</button>
-            {isCloud&&currentDiagramId&&cloud.canEdit&&currentDiagramStatus==="draft"&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>Submit for Approval</button>}
+            {isCloud&&currentDiagramId&&cloud.canEdit&&currentDiagramStatus==="draft"&&<button onClick={submitForApproval} style={{...btnS("#e8a040","#fff"),padding:"5px 12px",fontSize:11}}>↑ Submit for Approval</button>}
             {isCloud&&currentDiagramStatus!=="approved"&&<span style={{fontSize:10,color:C.textLight,padding:"5px 8px"}}>Export available after approval</span>}
             {(!isCloud||currentDiagramStatus==="approved")&&<>
               <button onClick={exportPages} disabled={exporting} style={{...btnS(C.accent,"#fff"),padding:"5px 14px",opacity:exporting?0.6:1}}>{exporting?"...":numPages>1?`PNG (${numPages} pg)`:"Export PNG"}</button>

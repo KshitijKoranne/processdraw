@@ -146,7 +146,7 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
           {tabBtn("create", "Create Employee")}
           {tabBtn("users", "Users")}
           {tabBtn("audit", "Audit Log")}
-          {isFullScreen && <div style={{ marginLeft: 8 }}><UserButton /></div>}
+          {isFullScreen && <div style={{ marginLeft: 8 }}><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div>}
         </div>
       </div>
 
