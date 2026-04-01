@@ -99,7 +99,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const [currentDiagramMeta, setCurrentDiagramMeta] = useState<any>(null); // { ownerName, approvedByName }
 
   useEffect(() => { if (!isCloud) { try { const s = localStorage.getItem("processdraw_settings"); if (s) setSettings(JSON.parse(s)); const d = localStorage.getItem("processdraw_saved"); if (d) setSavedDiagrams(JSON.parse(d)); } catch (e) {} } }, [isCloud]);
-  useEffect(() => { if (isCloud && cloud.diagrams) setSavedDiagrams(cloud.diagrams); }, [isCloud, cloud?.diagrams]);
+  useEffect(() => { if (isCloud && cloud.diagrams) setSavedDiagrams(cloud.diagrams); }, [isCloud, JSON.stringify(cloud?.diagrams?.map((d: any) => d._id + d.status))]);
 
   const saveSettings = (s: any) => { setSettings(s); localStorage.setItem("processdraw_settings", JSON.stringify(s)); };
 
@@ -363,30 +363,47 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
         {showSaveInput?(<div style={{display:"flex",gap:6}}><input value={saveName} onChange={(e)=>setSaveName(e.target.value)} placeholder="Name..." autoFocus onKeyDown={(e)=>{if(e.key==="Enter"&&saveName.trim())saveDiagram(saveName.trim());}} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,color:C.text,borderRadius:5,padding:"5px 10px",fontSize:12,fontFamily:BODY,outline:"none"}}/><button onClick={()=>{if(saveName.trim())saveDiagram(saveName.trim());}} style={btnS(C.accent,"#fff")}>Save</button></div>):
         (<button onClick={()=>setShowSaveInput(true)} style={{...btnS(C.accent,"#fff"),width:"100%",textAlign:"center" as any}}>Save Current</button>)}</div>)}
       <div style={{flex:1,overflowY:"auto",padding:"8px 12px"}}>
-        {savedDiagrams.length===0&&<div style={{fontSize:12,color:C.textLight,textAlign:"center",padding:24,fontStyle:"italic"}}>No saved diagrams yet.</div>}
-        {savedDiagrams.map((d)=>{
+        {(()=>{
           const statusColors: any = {draft:"#aaa",submitted:"#d4a040",approved:"#5a9e7a",rejected:"#c47a6a"};
-          const statusColor = isCloud ? (statusColors[d.status]||"#aaa") : null;
-          return (<div key={d._id||d.id} style={{padding:"10px 12px",marginBottom:4,borderRadius:8,background:C.surface,border:`1px solid ${C.borderLight}`,cursor:"pointer",transition:"all 0.12s"}} onClick={()=>loadDiagram(d)} onMouseEnter={(e)=>{e.currentTarget.style.borderColor=C.accent;}} onMouseLeave={(e)=>{e.currentTarget.style.borderColor=C.borderLight;}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</div>
-            <div style={{fontSize:10,color:C.textMuted,marginTop:2}}>
-              {d.blocks?.length||0} steps
-              {isCloud&&d.ownerName&&!d.isOwn&&` · by ${d.ownerName}`}
-              {!isCloud&&d.savedAt&&` · ${new Date(d.savedAt).toLocaleDateString()}`}
-              {isCloud&&d.updatedAt&&` · ${new Date(d.updatedAt).toLocaleDateString()}`}
-            </div>
-            {isCloud&&d.status&&<div style={{display:"inline-block",fontSize:9,color:"#fff",background:statusColor,padding:"1px 6px",borderRadius:8,marginTop:3,fontWeight:600,textTransform:"uppercase"}}>{d.status}{d.revisionCount>0&&` (rev ${d.revisionCount})`}</div>}
-            {isCloud&&d.status==="rejected"&&d.rejectionComment&&<div style={{fontSize:10,color:"#c47a6a",marginTop:3,lineHeight:1.4,fontStyle:"italic"}}>Reason: {d.rejectionComment}{d.rejectedByName&&` — ${d.rejectedByName}`}</div>}
-          </div>
-          <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
-            {isCloud&&cloud.isApprover&&d.status==="submitted"&&<>
-              <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"approved");}} style={{background:"#5a9e7a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✓</button>
-              <button onClick={(e)=>{e.stopPropagation();setRejectModal({diagramId:d._id,diagramName:d.name});setRejectComment("");}} style={{background:"#c47a6a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✗</button>
-            </>}
-            {isCloud&&d.isOwn&&d.status==="rejected"&&<button onClick={(e)=>{e.stopPropagation();reviseDiagram(d._id);}} style={{background:"#e8a040",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>Revise</button>}
-            {(isCloud?d.isOwn||cloud.isAdmin:true)&&<button onClick={(e)=>{e.stopPropagation();deleteDiagram(d._id||d.id);}} style={{background:"none",border:"none",color:C.textLight,cursor:"pointer",fontSize:14}}>×</button>}
-          </div></div></div>);})}</div></div>)}
+          const renderCard = (d: any) => {
+            const statusColor = isCloud ? (statusColors[d.status]||"#aaa") : null;
+            return (<div key={d._id||d.id} style={{padding:"10px 12px",marginBottom:4,borderRadius:8,background:C.surface,border:`1px solid ${C.borderLight}`,cursor:"pointer",transition:"all 0.12s"}} onClick={()=>loadDiagram(d)} onMouseEnter={(e)=>{e.currentTarget.style.borderColor=C.accent;}} onMouseLeave={(e)=>{e.currentTarget.style.borderColor=C.borderLight;}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</div>
+                <div style={{fontSize:10,color:C.textMuted,marginTop:2}}>
+                  {d.blocks?.length||0} steps
+                  {isCloud&&d.ownerName&&` · by ${d.ownerName}`}
+                  {!isCloud&&d.savedAt&&` · ${new Date(d.savedAt).toLocaleDateString()}`}
+                  {isCloud&&d.updatedAt&&` · ${new Date(d.updatedAt).toLocaleDateString()}`}
+                </div>
+                {isCloud&&d.status&&<div style={{display:"inline-block",fontSize:9,color:"#fff",background:statusColor,padding:"1px 6px",borderRadius:8,marginTop:3,fontWeight:600,textTransform:"uppercase" as any}}>{d.status}{d.revisionCount>0&&` (rev ${d.revisionCount})`}</div>}
+                {isCloud&&d.status==="rejected"&&d.rejectionComment&&<div style={{fontSize:10,color:"#c47a6a",marginTop:3,lineHeight:1.4,fontStyle:"italic"}}>Reason: {d.rejectionComment}{d.rejectedByName&&` — ${d.rejectedByName}`}</div>}
+              </div>
+              <div style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
+                {isCloud&&cloud.isApprover&&d.status==="submitted"&&<>
+                  <button onClick={(e)=>{e.stopPropagation();reviewDiagram(d._id,"approved");}} style={{background:"#5a9e7a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✓</button>
+                  <button onClick={(e)=>{e.stopPropagation();setRejectModal({diagramId:d._id,diagramName:d.name});setRejectComment("");}} style={{background:"#c47a6a",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>✗</button>
+                </>}
+                {isCloud&&d.isOwn&&d.status==="rejected"&&<button onClick={(e)=>{e.stopPropagation();reviseDiagram(d._id);}} style={{background:"#e8a040",border:"none",color:"#fff",borderRadius:4,padding:"3px 8px",fontSize:10,cursor:"pointer",fontFamily:BODY}}>Revise</button>}
+                {(isCloud?d.isOwn||cloud.isAdmin:true)&&<button onClick={(e)=>{e.stopPropagation();deleteDiagram(d._id||d.id);}} style={{background:"none",border:"none",color:C.textLight,cursor:"pointer",fontSize:14}}>×</button>}
+              </div></div></div>);
+          };
+          if (isCloud && cloud.isApprover) {
+            const pending = savedDiagrams.filter((d:any)=>d.status==="submitted");
+            const approved = savedDiagrams.filter((d:any)=>d.status==="approved");
+            return (<>
+              <div style={{fontSize:10,fontWeight:700,color:"#d4a040",textTransform:"uppercase" as any,letterSpacing:1,padding:"6px 4px 4px"}}>⏳ Pending Review ({pending.length})</div>
+              {pending.length===0&&<div style={{fontSize:12,color:C.textLight,textAlign:"center" as any,padding:"12px 8px",fontStyle:"italic",background:C.surface,borderRadius:8,marginBottom:8}}>No diagrams awaiting review.</div>}
+              {pending.map(renderCard)}
+              <div style={{fontSize:10,fontWeight:700,color:"#5a9e7a",textTransform:"uppercase" as any,letterSpacing:1,padding:"10px 4px 4px",marginTop:4,borderTop:`1px solid ${C.borderLight}`}}>✓ Approved ({approved.length})</div>
+              {approved.length===0&&<div style={{fontSize:12,color:C.textLight,textAlign:"center" as any,padding:"12px 8px",fontStyle:"italic",background:C.surface,borderRadius:8}}>No approved diagrams yet.</div>}
+              {approved.map(renderCard)}
+            </>);
+          }
+          if (savedDiagrams.length===0) return <div style={{fontSize:12,color:C.textLight,textAlign:"center" as any,padding:24,fontStyle:"italic"}}>No saved diagrams yet.</div>;
+          return <>{savedDiagrams.map(renderCard)}</>;
+        })()}
+      </div></div>)}
 
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 20px",borderBottom:`1px solid ${C.border}`,background:C.surface,gap:8}}>

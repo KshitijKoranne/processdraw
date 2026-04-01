@@ -165,7 +165,7 @@ export const listOwn = query({
 // Role-based visibility:
 // IT Admin: sees all diagrams (for audit/oversight, but cannot act on them)
 // User: sees only own diagrams
-// Approver: sees submitted diagrams (to review) + approved ones + own (if any legacy)
+// Approver: sees ALL submitted diagrams (to review) + all approved ones
 // Viewer: sees only approved diagrams
 export const listAll = query({
   args: {},
@@ -177,11 +177,26 @@ export const listAll = query({
     const all = await ctx.db.query("diagrams").order("desc").collect();
     switch (user.role) {
       case "it_admin": return all; // oversight only
-      case "approver": return all.filter((d) => d.status === "submitted" || d.status === "approved");
+      case "approver":
+        // Show ALL submitted diagrams (pending review) + all approved diagrams
+        // This ensures approvers can always see everything awaiting their action
+        return all.filter((d) => d.status === "submitted" || d.status === "approved");
       case "user": return all.filter((d) => d.ownerId === user.clerkId);
       case "viewer": return all.filter((d) => d.status === "approved");
       default: return [];
     }
+  },
+});
+
+// Dedicated query for approvers to get only pending-review diagrams
+export const listSubmitted = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const user = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject)).unique();
+    if (!user || (user.role !== "approver" && user.role !== "it_admin")) return [];
+    return await ctx.db.query("diagrams").withIndex("by_status", (q) => q.eq("status", "submitted")).order("desc").collect();
   },
 });
 
