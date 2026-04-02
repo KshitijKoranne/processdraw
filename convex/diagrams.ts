@@ -130,6 +130,41 @@ export const review = mutation({
   },
 });
 
+// Approver can send a submitted diagram back to the owner as draft (with a comment)
+export const sendBack = mutation({
+  args: { diagramId: v.id("diagrams"), comment: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx);
+    if (user.role !== "approver") throw new Error("Only approvers can send diagrams back");
+    if (!args.comment.trim()) throw new Error("Please provide a reason for sending back");
+    const diagram = await ctx.db.get(args.diagramId);
+    if (!diagram) throw new Error("Diagram not found");
+    if (diagram.status !== "submitted") throw new Error("Only submitted diagrams can be sent back");
+
+    await ctx.db.patch(args.diagramId, {
+      status: "draft",
+      rejectedBy: user.clerkId, rejectedByName: user.name,
+      rejectionComment: args.comment.trim(),
+      rejectedAt: Date.now(), updatedAt: Date.now(),
+    });
+
+    // Notify diagram owner
+    await ctx.db.insert("notifications", {
+      userId: diagram.ownerId, type: "rejected",
+      diagramId: args.diagramId, diagramName: diagram.name,
+      actorName: user.name, comment: args.comment.trim(),
+      read: false, createdAt: Date.now(),
+    });
+
+    await logAction(ctx, {
+      action: "diagram_sent_back",
+      actorId: user.clerkId, actorName: user.name, actorEmail: user.email,
+      targetType: "diagram", targetId: args.diagramId, targetName: diagram.name,
+      details: JSON.stringify({ comment: args.comment.trim() }),
+    });
+  },
+});
+
 // Only owner (user role) can revise rejected diagrams
 export const revise = mutation({
   args: { diagramId: v.id("diagrams") },

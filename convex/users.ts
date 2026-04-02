@@ -34,10 +34,11 @@ export const upsertUser = mutation({
       .unique();
 
     if (existing) {
-      // Don't update disabled users' info, just log and return
+      // Don't overwrite a proper name (set by IT Admin) with Clerk's default "User"
       const resolvedName = buildName();
+      const nameIsGeneric = !resolvedName || resolvedName === "User";
       await ctx.db.patch(existing._id, {
-        name: resolvedName !== "User" ? resolvedName : existing.name,
+        name: nameIsGeneric ? existing.name : resolvedName,
         email: identity.email || existing.email,
         imageUrl: identity.pictureUrl || existing.imageUrl,
       });

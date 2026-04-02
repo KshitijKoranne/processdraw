@@ -23,6 +23,7 @@ export default function ProcessDrawApp() {
   const submitDiagram = useMutation(api.diagrams.submit);
   const reviewDiagram = useMutation(api.diagrams.review);
   const reviseDiagram = useMutation(api.diagrams.revise);
+  const sendBackDiagram = useMutation(api.diagrams.sendBack);
   const isDemoUser = useQuery(api.demoData.isDemoUser);
   const notifications = useQuery(api.notifications.list);
   const unreadCount = useQuery(api.notifications.unreadCount);
@@ -98,6 +99,7 @@ export default function ProcessDrawApp() {
       await reviewDiagram({ diagramId: id as any, decision, comment });
     },
     onRevise: async (id: string) => { await reviseDiagram({ diagramId: id as any }); },
+    onSendBack: async (id: string, comment: string) => { await sendBackDiagram({ diagramId: id as any, comment }); },
     isAdmin: false, // IT Admin never reaches here
     isApprover: currentUser.role === "approver",
     canEdit: currentUser.role === "user", // only user role can create/edit
