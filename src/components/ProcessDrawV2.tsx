@@ -48,6 +48,7 @@ function PlusBtn({ x, y, size = 16, onClick, frozen }: any) { if (frozen) return
 function EndBtn({ x, y, onClick, frozen }: any) { if (frozen) return null; return (<g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.45}><rect x={x - 20} y={y - 9} width={40} height={18} rx={3} fill="none" stroke={C.danger} strokeWidth={1} /><text x={x} y={y + 1} textAnchor="middle" dominantBaseline="central" fontFamily={BODY} fontSize={9} fontWeight={500} fill={C.danger}>END</text></g>); }
 function DelBtn({ cx, cy, onClick }: any) { return (<g style={{ cursor: "pointer" }} onClick={onClick} opacity={0.35}><circle cx={cx} cy={cy} r={7} fill={C.textMuted} /><text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={10} fill="#fff" fontFamily={BODY}>×</text><circle cx={cx} cy={cy} r={12} fill="transparent" /></g>); }
 
+/* FOOTER DISABLED
 function SettingsPanel({ settings, onSave, onClose }: any) {
   const [pBy, setPBy] = useState(settings.preparedBy || ""); const [cBy, setCBy] = useState(settings.checkedBy || "");
   const iS: any = { width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "8px 12px", fontSize: 14, fontFamily: BODY, outline: "none", boxSizing: "border-box" };
@@ -60,6 +61,7 @@ function SettingsPanel({ settings, onSave, onClose }: any) {
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><button onClick={onClose} style={btnS(C.bg, C.textMuted, `1px solid ${C.border}`)}>Cancel</button><button onClick={() => { onSave({ preparedBy: pBy, checkedBy: cBy }); onClose(); }} style={btnS(C.accent, "#fff")}>Save</button></div>
     </div></div>);
 }
+*/ // END FOOTER DISABLED
 
 function HowToUse({ onClose }: { onClose: () => void }) {
   const steps = [
@@ -87,7 +89,8 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const [blocks, setBlocks] = useState<any[]>([]); const [arrowAnn, setArrowAnn] = useState<any>({}); const [frozen, setFrozen] = useState(false);
   const [modal, setModal] = useState<any>(null); const [picker, setPicker] = useState<any>(null); const [betweenPicker, setBetweenPicker] = useState<any>(null);
   const [toast, setToast] = useState<string | null>(null); const [exporting, setExporting] = useState(false); const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState({ preparedBy: "", checkedBy: "" }); const [showHistory, setShowHistory] = useState(false); const [savedDiagrams, setSavedDiagrams] = useState<any[]>([]);
+  // const [settings, setSettings] = useState({ preparedBy: "", checkedBy: "" }); /* FOOTER DISABLED */
+  const [showHistory, setShowHistory] = useState(false); const [savedDiagrams, setSavedDiagrams] = useState<any[]>([]);
   const [saveName, setSaveName] = useState(""); const [showSaveInput, setShowSaveInput] = useState(false); const [showHelp, setShowHelp] = useState(false); const svgRef = useRef<SVGSVGElement>(null);
   const [rejectModal, setRejectModal] = useState<any>(null); // { diagramId, diagramName, mode: "reject"|"sendBack" }
   const [rejectComment, setRejectComment] = useState("");
@@ -99,14 +102,14 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
   const [currentDiagramStatus, setCurrentDiagramStatus] = useState<string>("draft");
   const [currentDiagramMeta, setCurrentDiagramMeta] = useState<any>(null); // { ownerName, approvedByName }
 
-  useEffect(() => { if (!isCloud) { try { const s = localStorage.getItem("processdraw_settings"); if (s) setSettings(JSON.parse(s)); const d = localStorage.getItem("processdraw_saved"); if (d) setSavedDiagrams(JSON.parse(d)); } catch (e) {} } }, [isCloud]);
+  useEffect(() => { if (!isCloud) { try { /* const s = localStorage.getItem("processdraw_settings"); if (s) setSettings(JSON.parse(s)); */ const d = localStorage.getItem("processdraw_saved"); if (d) setSavedDiagrams(JSON.parse(d)); } catch (e) {} } }, [isCloud]);
   useEffect(() => { if (isCloud && cloud.diagrams) setSavedDiagrams(cloud.diagrams); }, [isCloud, JSON.stringify(cloud?.diagrams?.map((d: any) => d._id + d.status))]);
 
-  const saveSettings = (s: any) => { setSettings(s); localStorage.setItem("processdraw_settings", JSON.stringify(s)); };
+  // const saveSettings = (s: any) => { setSettings(s); localStorage.setItem("processdraw_settings", JSON.stringify(s)); }; /* FOOTER DISABLED */
 
   const saveDiagram = async (name: string) => {
     if (isCloud) {
-      try { const savedId = await cloud.onSave(name, blocks, arrowAnn, settings, currentDiagramId || undefined); setCurrentDiagramName(name); if (savedId && !currentDiagramId) setCurrentDiagramId(savedId as string); showT(`Saved "${name}"`); }
+      try { const savedId = await cloud.onSave(name, blocks, arrowAnn, {}, currentDiagramId || undefined); /* settings param disabled */ setCurrentDiagramName(name); if (savedId && !currentDiagramId) setCurrentDiagramId(savedId as string); showT(`Saved "${name}"`); }
       catch (e: any) { showT(e.message || "Save failed"); }
     } else {
       const d = { id: uid(), name, blocks, arrowAnnotations: arrowAnn, savedAt: new Date().toISOString() };
@@ -118,7 +121,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
 
   const loadDiagram = (d: any) => {
     setBlocks(d.blocks || []); setArrowAnn(d.arrowAnnotations || {});
-    if (d.settings) setSettings(d.settings);
+    // if (d.settings) setSettings(d.settings); /* FOOTER DISABLED */
     if (d._id) setCurrentDiagramId(d._id);
     setCurrentDiagramName(d.name || "");
     setCurrentDiagramStatus(d.status || "draft");
@@ -299,8 +302,8 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     });
 
     const dH = y + 20;
-    const needsFooter = frozen && isCloud && currentDiagramStatus === "approved";
-    const finalH = needsFooter ? dH + FOOTER_H + 30 : dH + 40;
+    // const needsFooter = frozen && isCloud && currentDiagramStatus === "approved"; /* FOOTER DISABLED */
+    const finalH = dH + 40;
     return { pos, totalH: finalH, totalW: SVG_W, dEndY: dH };
   }, [blocks, frozen, isCloud, currentDiagramStatus]);
   const{pos:positions,totalH,totalW,dEndY}=layout(); const numPages=Math.max(1,Math.ceil(totalH/A4_PAGE_H));
@@ -336,6 +339,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
         els.push(<PlusBtn key={`pr-${i}`} x={bx+bW+SIDE_GAP/2} y={rby} size={14} onClick={()=>setPicker({blockId:block.id,side:"right"})} frozen={frozen}/>);}
       if(i===positions.length-1&&!frozen){const bY=by+bH+32;els.push(<PlusBtn key="pe" x={CANVAS_CENTER-28} y={bY} size={16} onClick={()=>setModal({type:"new"})} frozen={frozen}/>);els.push(<EndBtn key="eb" x={CANVAS_CENTER+28} y={bY} onClick={handleEnd} frozen={frozen}/>);}
     });
+    /* FOOTER DISABLED
     // Footer: only on approved diagrams when frozen
     if (frozen && isCloud && currentDiagramStatus === "approved" && currentDiagramMeta) {
       const fY = dEndY + 10;
@@ -352,6 +356,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
       els.push(<line key="fcsl" x1={c2 + 35} y1={fY + 42} x2={c2 + 35 + lW} y2={fY + 42} stroke="#1a1a1a" strokeWidth={0.8} />);
       els.push(<text key="fdt" x={SVG_W - 60} y={fY + 20} textAnchor="end" fontFamily={SVG_FONT} fontSize={10} fill="#888">Date: {dt}</text>);
     }
+    */
     return els;};
 
   const handleMC=(t:string)=>{if(!modal)return;if(modal.type==="new")addBlock(t);else if(modal.type==="edit")editBlock(modal.blockId,t);else if(modal.type==="side")addSideItem(modal.blockId,modal.side,modal.sideType,t);else if(modal.type==="between")addAnn(modal.arrowIdx,modal.side,t);setModal(null);};
@@ -431,7 +436,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
             </div>
           )}
           <button onClick={()=>setShowHelp(true)} title="Help" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>?</button>
-          <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>⚙</button>
+          {/* <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY}}>⚙</button> FOOTER DISABLED */}
           {isCloud&&cloud.isAdmin&&<button onClick={cloud.onShowAdmin} title="Admin" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:11,cursor:"pointer",fontFamily:BODY}}>Users</button>}
           {isCloud&&<button onClick={cloud.onToggleNotifications} title="Notifications" style={{background:"none",border:`1px solid ${C.border}`,color:C.textMuted,borderRadius:6,padding:"4px 9px",fontSize:12,cursor:"pointer",fontFamily:BODY,position:"relative"}}>
             🔔{cloud.unreadCount>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#c47a6a",color:"#fff",fontSize:8,fontWeight:700,borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{cloud.unreadCount}</span>}
@@ -473,7 +478,7 @@ export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
     {modal&&<TextModal title={gT()} initial={gI()} placeholder={gP()} onConfirm={handleMC} onCancel={()=>setModal(null)}/>}
     {picker&&<PickerModal title={`Add to ${picker.side==="left"?"Left":"Right"} Side`} options={SIDE_TYPES} onPick={(id:string)=>{setPicker(null);setModal({type:"side",blockId:picker.blockId,side:picker.side,sideType:id});}} onCancel={()=>setPicker(null)}/>}
     {betweenPicker&&<PickerModal title="Add annotation near arrow" options={BETWEEN_OPTS} onPick={(id:string)=>{setBetweenPicker(null);setModal({type:"between",arrowIdx:betweenPicker.arrowIdx,side:id});}} onCancel={()=>setBetweenPicker(null)}/>}
-    {showSettings&&<SettingsPanel settings={settings} onSave={saveSettings} onClose={()=>setShowSettings(false)}/>}
+    {/* showSettings&&<SettingsPanel settings={settings} onSave={saveSettings} onClose={()=>setShowSettings(false)}/> FOOTER DISABLED */}
     {showHelp&&<HowToUse onClose={()=>setShowHelp(false)}/>}
 
     {/* Rejection comment modal */}
