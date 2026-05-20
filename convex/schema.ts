@@ -24,6 +24,7 @@ export default defineSchema({
     arrowAnnotations: v.string(),
     settings: v.string(),
     status: v.string(),
+    currentRevision: v.optional(v.number()),
     approvedBy: v.optional(v.string()),
     approvedByName: v.optional(v.string()),
     approvedAt: v.optional(v.number()),
@@ -40,14 +41,44 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_updated", ["updatedAt"]),
 
+  diagram_versions: defineTable({
+    diagramId: v.id("diagrams"),
+    revisionNumber: v.number(),
+    name: v.string(),
+    blocks: v.string(),
+    arrowAnnotations: v.string(),
+    settings: v.string(),
+    statusAtSnapshot: v.string(),
+    snapshotType: v.string(),
+    submittedBy: v.string(),
+    submittedByName: v.string(),
+    submittedAt: v.number(),
+    submittedRemarks: v.string(),
+    approvedBy: v.optional(v.string()),
+    approvedByName: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
+    approvalRemarks: v.optional(v.string()),
+    revertedBy: v.optional(v.string()),
+    revertedByName: v.optional(v.string()),
+    revertedAt: v.optional(v.number()),
+    revertRemarks: v.optional(v.string()),
+    rejectedBy: v.optional(v.string()),
+    rejectedByName: v.optional(v.string()),
+    rejectedAt: v.optional(v.number()),
+    rejectionRemarks: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_diagram", ["diagramId"])
+    .index("by_diagram_revision", ["diagramId", "revisionNumber"]),
+
   // Notifications — alerts for users when their diagrams are reviewed
   notifications: defineTable({
-    userId: v.string(),          // Clerk user ID of recipient
-    type: v.string(),            // "approved" | "rejected" | "submitted"
+    userId: v.string(),
+    type: v.string(),
     diagramId: v.string(),
     diagramName: v.string(),
-    actorName: v.string(),       // who performed the action
-    comment: v.optional(v.string()), // rejection reason
+    actorName: v.string(),
+    comment: v.optional(v.string()),
     read: v.boolean(),
     createdAt: v.number(),
   })
