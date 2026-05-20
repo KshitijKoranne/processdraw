@@ -9,6 +9,11 @@ import type { ArrowAnnotations, BetweenState, Block, DiagramRecord, ModalState, 
 
 const makeId = () => "n" + Math.random().toString(36).slice(2, 9);
 
+function askRemarks(action: string) {
+  const remarks = window.prompt(`${action} remarks are mandatory. Enter remarks:`)?.trim();
+  return remarks || null;
+}
+
 export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const isCloud = !!cloud;
@@ -114,6 +119,8 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
     if (!finalized) return showToast("Click END / Preview before submitting");
     if (!blocks.length) return showToast("Add at least one process step");
     if (!isCloud) return;
+    const remarks = askRemarks("Submission");
+    if (!remarks) return showToast("Submission remarks are required");
 
     try {
       const targetName = name || saveName || "Untitled diagram";
@@ -121,13 +128,27 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
       const submitId = savedId || currentId;
       if (savedId && !currentId) setCurrentId(savedId);
       if (!submitId) throw new Error("Save failed before submit");
-      await cloud.onSubmit(submitId);
+      await cloud.onSubmit(submitId, remarks);
       setName(targetName);
       setStatus("submitted");
       setFinalized(true);
       showToast("Finalized and submitted for approval");
     } catch (error: any) {
       showToast(error?.message || "Submit failed");
+    }
+  };
+
+  const approverAction = async (diagram: DiagramRecord, action: "approved" | "reverted" | "rejected") => {
+    if (!diagram._id) return;
+    const label = action === "approved" ? "Approval" : action === "reverted" ? "Revert" : "Rejection";
+    const remarks = askRemarks(label);
+    if (!remarks) return showToast(`${label} remarks are required`);
+    try {
+      if (action === "reverted") await cloud.onSendBack(diagram._id, remarks);
+      else await cloud.onReview(diagram._id, action === "approved" ? "approved" : "rejected", remarks);
+      showToast(action === "approved" ? "Diagram approved" : action === "reverted" ? "Diagram reverted for correction" : "Diagram rejected and workflow closed");
+    } catch (error: any) {
+      showToast(error?.message || "Action failed");
     }
   };
 
@@ -202,7 +223,15 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
             {diagrams.length ? diagrams.map((diagram) => (
               <div className="pd-card" key={diagram._id || diagram.id || diagram.name} onClick={() => loadDiagram(diagram)}>
                 <b>{diagram.name}</b>
-                <span>{diagram.blocks?.length || 0} steps · {diagram.status || "draft"}{diagram.settings?.finalized ? " · finalized" : ""}</span>
+                <span>{diagram.blocks?.length || 0} steps · {diagram.status || "draft"}{diagram.currentRevision !== undefined ? ` · Rev ${diagram.currentRevision}` : ""}{diagram.settings?.finalized ? " · finalized" : ""}</span>
+                {cloud?.isApprover && diagram.status === "submitted" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }} onClick={(event) => event.stopPropagation()}>
+                    <button style={buttonStyle("success")} onClick={() => approverAction(diagram, "approved")}>Approve</button>
+                    <button style={buttonStyle("warn")} onClick={() => approverAction(diagram, "reverted")}>Revert</button>
+                    <button style={buttonStyle("danger")} onClick={() => approverAction(diagram, "rejected")}>Reject</button>
+                  </div>
+                )}
+                {diagram.status === "rejected" && diagram.rejectionComment && <span style={{ display: "block", color: COLORS.danger, marginTop: 6 }}>Rejected: {diagram.rejectionComment}</span>}
               </div>
             )) : <p style={{ color: COLORS.light, textAlign: "center" }}>No saved diagrams yet.</p>}
           </div>
