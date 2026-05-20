@@ -51,25 +51,20 @@ export default function ProcessDrawApp() {
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
 
-  // Disabled user screen
   if (currentUser.disabled) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}>
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
         <div style={{ textAlign: "center", maxWidth: 400 }}>
           <div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div>
-          <div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>
-            Your account has been disabled by an administrator. Please contact your IT Admin for assistance.
-          </div>
+          <div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div>
           <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />
         </div>
       </div>
     );
   }
 
-  // IT Admin always sees admin panel — they don't create or approve diagrams
   if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
-
   if (showAdmin && currentUser.role === "it_admin") return <AdminPanel onBack={() => setShowAdmin(false)} />;
 
   const cloud = {
@@ -77,11 +72,15 @@ export default function ProcessDrawApp() {
     userName: currentUser.name,
     userEmail: currentUser.email,
     diagrams: (diagrams || []).map((d: any) => ({
-      _id: d._id, name: d.name, ownerName: d.ownerName,
+      _id: d._id,
+      name: d.name,
+      ownerName: d.ownerName,
       blocks: JSON.parse(d.blocks || "[]"),
       arrowAnnotations: JSON.parse(d.arrowAnnotations || "{}"),
       settings: JSON.parse(d.settings || "{}"),
-      status: d.status, updatedAt: d.updatedAt,
+      status: d.status,
+      currentRevision: d.currentRevision,
+      updatedAt: d.updatedAt,
       isOwn: d.ownerId === currentUser.clerkId,
       rejectionComment: d.rejectionComment,
       rejectedByName: d.rejectedByName,
@@ -91,22 +90,20 @@ export default function ProcessDrawApp() {
     onSave: async (name: string, blocks: any, annotations: any, settings: any, existingId?: string) => {
       const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(settings) };
       if (existingId) { await updateDiagram({ diagramId: existingId as any, ...data }); return existingId; }
-      else { const newId = await createDiagram(data); return newId as string; }
+      const newId = await createDiagram(data);
+      return newId as string;
     },
     onDelete: async (id: string) => { await removeDiagram({ diagramId: id as any }); },
-    onSubmit: async (id: string) => { await submitDiagram({ diagramId: id as any }); },
-    onReview: async (id: string, decision: string, comment?: string) => {
-      await reviewDiagram({ diagramId: id as any, decision, comment });
-    },
-    onRevise: async (id: string) => { await reviseDiagram({ diagramId: id as any }); },
-    onSendBack: async (id: string, comment: string) => { await sendBackDiagram({ diagramId: id as any, comment }); },
-    isAdmin: false, // IT Admin never reaches here
+    onSubmit: async (id: string, remarks: string) => { await submitDiagram({ diagramId: id as any, remarks }); },
+    onReview: async (id: string, decision: string, remarks: string) => { await reviewDiagram({ diagramId: id as any, decision, remarks }); },
+    onRevise: async (id: string, remarks: string) => { await reviseDiagram({ diagramId: id as any, remarks }); },
+    onSendBack: async (id: string, remarks: string) => { await sendBackDiagram({ diagramId: id as any, remarks }); },
+    isAdmin: false,
     isApprover: currentUser.role === "approver",
-    canEdit: currentUser.role === "user", // only user role can create/edit
-    canCreate: currentUser.role === "user", // only user role can create new diagrams
+    canEdit: currentUser.role === "user",
+    canCreate: currentUser.role === "user",
     onShowAdmin: () => setShowAdmin(true),
     UserButton: <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />,
-    // Notifications
     notifications: notifications || [],
     unreadCount: unreadCount || 0,
     showNotifications,
