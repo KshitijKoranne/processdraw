@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { A4_PAGE_HEIGHT, ARROW_SIZE, CANVAS_CENTER_X, COLORS, SIDE_GAP, SVG_WIDTH } from "./constants";
 import { sideDimensions } from "./geometry";
 import type { ArrowAnnotations, Block, Side } from "./types";
@@ -25,7 +26,7 @@ export function DiagramCanvas({
   onPickSide,
   onPickBetween,
 }: {
-  svgRef: React.RefObject<SVGSVGElement | null>;
+  svgRef: RefObject<SVGSVGElement | null>;
   layout: any;
   blocks: Block[];
   annotations: ArrowAnnotations;
@@ -37,6 +38,7 @@ export function DiagramCanvas({
   onPickSide: (blockId: string, side: Side) => void;
   onPickBetween: (index: number) => void;
 }) {
+  void blocks;
   const output: any[] = [];
 
   for (let page = 1; page < layout.pages; page++) {
