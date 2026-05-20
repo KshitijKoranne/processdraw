@@ -32,6 +32,12 @@ export type DiagramRecord = {
   arrowAnnotations?: ArrowAnnotations;
   settings?: { finalized?: boolean };
   status?: string;
+  currentRevision?: number;
+  revisionCount?: number;
+  rejectionComment?: string;
+  rejectedByName?: string;
+  approvedByName?: string;
+  isOwn?: boolean;
 };
 
 export type ModalState =
