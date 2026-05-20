@@ -11,6 +11,18 @@ async function getAuthUser(ctx: any) {
   return user;
 }
 
+function parseSettings(raw: string | undefined) {
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function withFinalized(raw: string | undefined, finalized: boolean) {
+  return JSON.stringify({ ...parseSettings(raw), finalized });
+}
+
 // Only "user" role can create diagrams
 export const create = mutation({
   args: { name: v.string(), blocks: v.string(), arrowAnnotations: v.string(), settings: v.string() },
@@ -37,6 +49,7 @@ export const update = mutation({
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
     if (diagram.ownerId !== user.clerkId) throw new Error("Can only edit your own diagrams");
+    if (diagram.status !== "draft") throw new Error("Only draft diagrams can be edited");
     const updates: any = { updatedAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
     if (args.blocks !== undefined) updates.blocks = args.blocks;
@@ -61,7 +74,7 @@ export const remove = mutation({
   },
 });
 
-// Only owner (user role) can submit for approval
+// Only owner (user role) can submit finalized draft diagrams for approval
 export const submit = mutation({
   args: { diagramId: v.id("diagrams") },
   handler: async (ctx, args) => {
@@ -70,6 +83,12 @@ export const submit = mutation({
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
     if (diagram.ownerId !== user.clerkId) throw new Error("Can only submit your own diagrams");
+    if (diagram.status !== "draft") throw new Error("Only draft diagrams can be submitted");
+
+    const settings = parseSettings(diagram.settings);
+    if (settings.finalized !== true) {
+      throw new Error("Please click END / Preview and save the finalized diagram before submitting for approval");
+    }
 
     await ctx.db.patch(args.diagramId, { status: "submitted", updatedAt: Date.now() });
 
@@ -88,7 +107,7 @@ export const submit = mutation({
   },
 });
 
-// Only "approver" role can approve/reject
+// Only "approver" role can approve/reject submitted diagrams
 export const review = mutation({
   args: { diagramId: v.id("diagrams"), decision: v.string(), comment: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -99,6 +118,10 @@ export const review = mutation({
 
     const diagram = await ctx.db.get(args.diagramId);
     if (!diagram) throw new Error("Diagram not found");
+    if (diagram.status !== "submitted") throw new Error("Only submitted diagrams can be reviewed");
+
+    const settings = parseSettings(diagram.settings);
+    if (settings.finalized !== true) throw new Error("Cannot review a diagram that was not finalized before submission");
 
     if (args.decision === "approved") {
       await ctx.db.patch(args.diagramId, {
@@ -143,6 +166,7 @@ export const sendBack = mutation({
 
     await ctx.db.patch(args.diagramId, {
       status: "draft",
+      settings: withFinalized(diagram.settings, false),
       rejectedBy: user.clerkId, rejectedByName: user.name,
       rejectionComment: args.comment.trim(),
       rejectedAt: Date.now(), updatedAt: Date.now(),
@@ -160,7 +184,7 @@ export const sendBack = mutation({
       action: "diagram_sent_back",
       actorId: user.clerkId, actorName: user.name, actorEmail: user.email,
       targetType: "diagram", targetId: args.diagramId, targetName: diagram.name,
-      details: JSON.stringify({ comment: args.comment.trim() }),
+      details: JSON.stringify({ comment: args.comment.trim(), finalizedReset: true }),
     });
   },
 });
@@ -177,13 +201,13 @@ export const revise = mutation({
     if (diagram.status !== "rejected") throw new Error("Only rejected diagrams can be revised");
 
     await ctx.db.patch(args.diagramId, {
-      status: "draft", revisionCount: (diagram.revisionCount || 0) + 1, updatedAt: Date.now(),
+      status: "draft", settings: withFinalized(diagram.settings, false), revisionCount: (diagram.revisionCount || 0) + 1, updatedAt: Date.now(),
     });
 
     await logAction(ctx, {
       action: "diagram_revised", actorId: user.clerkId, actorName: user.name, actorEmail: user.email,
       targetType: "diagram", targetId: args.diagramId, targetName: diagram.name,
-      details: JSON.stringify({ revisionNumber: (diagram.revisionCount || 0) + 1 }),
+      details: JSON.stringify({ revisionNumber: (diagram.revisionCount || 0) + 1, finalizedReset: true }),
     });
   },
 });
