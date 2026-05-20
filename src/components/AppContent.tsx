@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
 import ProcessDrawApp from "./ProcessDrawApp";
@@ -20,12 +20,8 @@ const C = {
   warm: "#f0ebe3",
 };
 
-function PrimaryButton({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <button className="lp-primary-btn" style={style}>
-      {children}
-    </button>
-  );
+function PrimaryButton({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  return <button className="lp-primary-btn" style={style}>{children}</button>;
 }
 
 function LandingPage() {
@@ -46,20 +42,17 @@ function LandingPage() {
     { icon: "📋", title: "Complete Audit Trail", desc: "Every action is logged: creation, edits, approvals, rejections. Immutable records for compliance and traceability." },
     { icon: "☁️", title: "Cloud-Based", desc: "Diagrams saved securely in the cloud. Access from any device, manage your team, never lose work." },
   ];
-
   const useCases = [
     { title: "Pharmaceutical Manufacturing", desc: "BPCR documentation, equipment qualification flows, cleaning validation sequences" },
     { title: "Chemical Processing", desc: "Reaction pathways, distillation sequences, batch processing workflows" },
     { title: "Food & Beverage", desc: "Production line flows, HACCP process diagrams, quality control checkpoints" },
     { title: "General Manufacturing", desc: "Assembly line documentation, process optimization, standard operating procedures" },
   ];
-
   const steps = [
     { img: "/images/hero-launch.jpg", step: "01", title: "Build Your Flow", desc: "Add process steps from the canvas. Click + to add equipment blocks, side inputs, quality checkpoints, and annotations between steps." },
     { img: "/images/hero-business.jpg", step: "02", title: "Review & Approve", desc: "Finalize the diagram, submit for approval. Approvers can review and sign off. Full audit trail tracks every change." },
     { img: "/images/hero-team.jpg", step: "03", title: "Export & Document", desc: "Export as print-ready PNG with signature footer. Auto-splits for multi-page A4. Paste directly into your documentation." },
   ];
-
   const demos = [
     { code: "demo_user", role: "User", desc: "Create diagrams, submit for approval", color: C.accent },
     { code: "demo_approver", role: "Approver", desc: "Review and approve submitted diagrams", color: "#d4a040" },
@@ -76,81 +69,14 @@ function LandingPage() {
         @media(max-width:640px){.lp-shell{padding-left:18px;padding-right:18px}.lp-nav{padding-top:14px;padding-bottom:14px}.lp-logo{gap:6px;flex-direction:column;align-items:flex-start}.lp-logo-main{font-size:20px}.lp-logo-sub{font-size:9px}.lp-outline-btn{padding:8px 16px;font-size:12px}.lp-hero{padding-top:22px;padding-bottom:44px;gap:28px}.lp-hero-copy{text-align:left}.lp-hero h1{font-size:38px;line-height:1.08;margin-bottom:16px}.lp-lead{font-size:15px;line-height:1.65;margin-bottom:26px}.lp-cta-row{align-items:stretch;justify-content:flex-start;flex-direction:column}.lp-primary-btn{width:100%;padding:13px 22px}.lp-small-note{font-size:12px;line-height:1.45}.lp-hero-visual{height:240px}.lp-carousel-caption{left:8px;right:8px;bottom:-10px;padding:9px 12px}.lp-caption-text{font-size:11px}.lp-section{padding-top:48px;padding-bottom:48px}.lp-section-heading{margin-bottom:28px;text-align:left}.lp-section-heading h2{font-size:28px}.lp-section-heading p{font-size:14px;margin:0}.lp-features,.lp-steps,.lp-usecases,.lp-demos{grid-template-columns:1fr;gap:16px}.lp-card{padding:20px 18px}.lp-step{text-align:left}.lp-step-img{height:170px}.lp-step-num{font-size:30px}.lp-demo-wrap{text-align:left}.lp-demo-card{text-align:left}.lp-demo-desc{min-height:auto}.lp-cta-section{padding-top:42px;padding-bottom:56px}.lp-cta-box{padding:28px 20px;border-radius:16px;text-align:left}.lp-cta-box h2{font-size:25px}.lp-footer{flex-direction:column;align-items:flex-start;padding-top:20px;padding-bottom:20px}.lp-footer span{font-size:11px}}
         @media(max-width:380px){.lp-hero h1{font-size:34px}.lp-hero-visual{height:210px}.lp-section-heading h2{font-size:25px}.lp-card-title{font-size:15px}}
       `}</style>
-
-      <nav className="lp-shell lp-nav">
-        <div className="lp-logo">
-          <span className="lp-logo-main">ProcessDraw</span>
-          <span className="lp-logo-sub">KJR Labs</span>
-        </div>
-        <SignInButton mode="modal"><button className="lp-outline-btn">Sign In</button></SignInButton>
-      </nav>
-
-      <section className="lp-shell lp-hero">
-        <div className="lp-hero-copy">
-          <h1>Process Flow Diagrams,<br /><span className="lp-accent">Made Simple</span></h1>
-          <p className="lp-lead">Create clean, standardized process flow diagrams in minutes — not hours. Built for manufacturing teams who need professional documentation without the complexity of CAD software.</p>
-          <div className="lp-cta-row">
-            <SignInButton mode="modal"><PrimaryButton>Sign In</PrimaryButton></SignInButton>
-            <span className="lp-small-note">Your administrator will set up your account</span>
-          </div>
-        </div>
-        <div className="lp-hero-visual">
-          {imgs.map((src, index) => <img key={src} src={src} alt={caps[index]} style={{ opacity: index === imgIdx ? 1 : 0 }} />)}
-          <div className="lp-carousel-caption">
-            <div className="lp-dots">
-              {imgs.map((_, index) => <button key={index} aria-label={`Show slide ${index + 1}`} className="lp-dot" onClick={() => setImgIdx(index)} style={{ background: index === imgIdx ? C.accent : C.border, border: 0 }} />)}
-            </div>
-            <span className="lp-caption-text">{caps[imgIdx]}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-section alt">
-        <div className="lp-shell">
-          <div className="lp-section-heading"><h2>Everything You Need</h2><p>Built for teams who create process documentation — with collaboration, approval workflows, and audit trails built in.</p></div>
-          <div className="lp-grid lp-features">
-            {features.map((feature) => <div key={feature.title} className="lp-card"><div className="lp-feature-icon">{feature.icon}</div><div className="lp-card-title">{feature.title}</div><div className="lp-card-desc">{feature.desc}</div></div>)}
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-shell lp-section">
-        <div className="lp-section-heading"><h2>How It Works</h2><p>Three steps to a print-ready process flow diagram</p></div>
-        <div className="lp-grid lp-steps">
-          {steps.map((step) => <div key={step.step} className="lp-step"><div className="lp-step-img"><img src={step.img} alt={step.title} /></div><div className="lp-step-num">{step.step}</div><div className="lp-step-title">{step.title}</div><div className="lp-card-desc">{step.desc}</div></div>)}
-        </div>
-      </section>
-
-      <section className="lp-section alt">
-        <div className="lp-shell">
-          <div className="lp-section-heading"><h2>Built for Manufacturing Teams</h2><p>Process flow diagrams for any industry that needs controlled documentation</p></div>
-          <div className="lp-grid lp-usecases">
-            {useCases.map((useCase) => <div key={useCase.title} className="lp-usecase"><div className="lp-usecase-title">{useCase.title}</div><div className="lp-card-desc">{useCase.desc}</div></div>)}
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-section alt">
-        <div className="lp-shell lp-demo-wrap">
-          <div className="lp-section-heading"><h2>Try It Yourself</h2><p>Explore ProcessDraw with a demo account — no sign-up required. Data resets daily.<br />Password for all demo accounts: <strong>demo1234</strong></p></div>
-          <div className="lp-grid lp-demos">
-            {demos.map((demo) => <div key={demo.code} className="lp-demo-card"><div className="lp-demo-role" style={{ color: demo.color }}>{demo.role}</div><div className="lp-demo-desc">{demo.desc}</div><div className="lp-demo-user">Username: <strong style={{ color: C.text }}>{demo.code}</strong></div><SignInButton mode="modal"><button className="lp-demo-btn" style={{ background: demo.color }}>Try as {demo.role}</button></SignInButton></div>)}
-          </div>
-        </div>
-      </section>
-
-      <section className="lp-shell lp-cta-section">
-        <div className="lp-cta-box">
-          <h2>Ready to simplify your process documentation?</h2>
-          <p>Your administrator creates your account. Sign in with your employee credentials to get started.</p>
-          <SignInButton mode="modal"><PrimaryButton>Sign In</PrimaryButton></SignInButton>
-        </div>
-      </section>
-
-      <footer className="lp-shell lp-footer">
-        <span>ProcessDraw by KJR Labs</span>
-        <span>Process flow diagrams for manufacturing teams</span>
-      </footer>
+      <nav className="lp-shell lp-nav"><div className="lp-logo"><span className="lp-logo-main">ProcessDraw</span><span className="lp-logo-sub">KJR Labs</span></div><SignInButton mode="modal"><button className="lp-outline-btn">Sign In</button></SignInButton></nav>
+      <section className="lp-shell lp-hero"><div className="lp-hero-copy"><h1>Process Flow Diagrams,<br /><span className="lp-accent">Made Simple</span></h1><p className="lp-lead">Create clean, standardized process flow diagrams in minutes — not hours. Built for manufacturing teams who need professional documentation without the complexity of CAD software.</p><div className="lp-cta-row"><SignInButton mode="modal"><PrimaryButton>Sign In</PrimaryButton></SignInButton><span className="lp-small-note">Your administrator will set up your account</span></div></div><div className="lp-hero-visual">{imgs.map((src, index) => <img key={src} src={src} alt={caps[index]} style={{ opacity: index === imgIdx ? 1 : 0 }} />)}<div className="lp-carousel-caption"><div className="lp-dots">{imgs.map((_, index) => <button key={index} aria-label={`Show slide ${index + 1}`} className="lp-dot" onClick={() => setImgIdx(index)} style={{ background: index === imgIdx ? C.accent : C.border, border: 0 }} />)}</div><span className="lp-caption-text">{caps[imgIdx]}</span></div></div></section>
+      <section className="lp-section alt"><div className="lp-shell"><div className="lp-section-heading"><h2>Everything You Need</h2><p>Built for teams who create process documentation — with collaboration, approval workflows, and audit trails built in.</p></div><div className="lp-grid lp-features">{features.map((feature) => <div key={feature.title} className="lp-card"><div className="lp-feature-icon">{feature.icon}</div><div className="lp-card-title">{feature.title}</div><div className="lp-card-desc">{feature.desc}</div></div>)}</div></div></section>
+      <section className="lp-shell lp-section"><div className="lp-section-heading"><h2>How It Works</h2><p>Three steps to a print-ready process flow diagram</p></div><div className="lp-grid lp-steps">{steps.map((step) => <div key={step.step} className="lp-step"><div className="lp-step-img"><img src={step.img} alt={step.title} /></div><div className="lp-step-num">{step.step}</div><div className="lp-step-title">{step.title}</div><div className="lp-card-desc">{step.desc}</div></div>)}</div></section>
+      <section className="lp-section alt"><div className="lp-shell"><div className="lp-section-heading"><h2>Built for Manufacturing Teams</h2><p>Process flow diagrams for any industry that needs controlled documentation</p></div><div className="lp-grid lp-usecases">{useCases.map((useCase) => <div key={useCase.title} className="lp-usecase"><div className="lp-usecase-title">{useCase.title}</div><div className="lp-card-desc">{useCase.desc}</div></div>)}</div></div></section>
+      <section className="lp-section alt"><div className="lp-shell lp-demo-wrap"><div className="lp-section-heading"><h2>Try It Yourself</h2><p>Explore ProcessDraw with a demo account — no sign-up required. Data resets daily.<br />Password for all demo accounts: <strong>demo1234</strong></p></div><div className="lp-grid lp-demos">{demos.map((demo) => <div key={demo.code} className="lp-demo-card"><div className="lp-demo-role" style={{ color: demo.color }}>{demo.role}</div><div className="lp-demo-desc">{demo.desc}</div><div className="lp-demo-user">Username: <strong style={{ color: C.text }}>{demo.code}</strong></div><SignInButton mode="modal"><button className="lp-demo-btn" style={{ background: demo.color }}>Try as {demo.role}</button></SignInButton></div>)}</div></div></section>
+      <section className="lp-shell lp-cta-section"><div className="lp-cta-box"><h2>Ready to simplify your process documentation?</h2><p>Your administrator creates your account. Sign in with your employee credentials to get started.</p><SignInButton mode="modal"><PrimaryButton>Sign In</PrimaryButton></SignInButton></div></section>
+      <footer className="lp-shell lp-footer"><span>ProcessDraw by KJR Labs</span><span>Process flow diagrams for manufacturing teams</span></footer>
     </div>
   );
 }
@@ -158,15 +84,7 @@ function LandingPage() {
 export default function AppContent() {
   return (
     <>
-      <AuthLoading>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee" }}>
-          <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#2c2824", fontFamily: "'Fraunces', Georgia, serif" }}>ProcessDraw</div>
-            <div style={{ fontSize: 13, color: "#b5ada5", marginTop: 8, fontFamily: "'Outfit', sans-serif" }}>Loading...</div>
-          </div>
-        </div>
-      </AuthLoading>
+      <AuthLoading><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee" }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" /><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, color: "#2c2824", fontFamily: "'Fraunces', Georgia, serif" }}>ProcessDraw</div><div style={{ fontSize: 13, color: "#b5ada5", marginTop: 8, fontFamily: "'Outfit', sans-serif" }}>Loading...</div></div></div></AuthLoading>
       <Unauthenticated><LandingPage /></Unauthenticated>
       <Authenticated><ProcessDrawApp /></Authenticated>
     </>
