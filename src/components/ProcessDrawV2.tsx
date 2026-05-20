@@ -1,7 +1,7 @@
 "use client";
 
-import ProductionProcessDraw from "./processdraw/ProductionProcessDraw";
+import WorkflowSafeProcessDraw from "./processdraw/WorkflowSafeProcessDraw";
 
 export default function ProcessDrawV2({ cloud }: { cloud?: any }) {
-  return <ProductionProcessDraw cloud={cloud} />;
+  return <WorkflowSafeProcessDraw cloud={cloud} />;
 }
