@@ -6,11 +6,10 @@ export const wipeDemoData = internalMutation({
     const allUsers = await ctx.db.query("users").collect();
     const demoUsers = allUsers.filter((user) => user.isDemo);
     const demoUserIds = demoUsers.map((user) => user.clerkId);
-
     if (demoUserIds.length === 0) return;
 
     const allDiagrams = await ctx.db.query("diagrams").collect();
-    const demoDiagrams = allDiagrams.filter((diagram) => demoUserIds.includes(diagram.ownerId));
+    const demoDiagrams = allDiagrams.filter((diagram) => diagram.isDemo || demoUserIds.includes(diagram.ownerId));
     for (const diagram of demoDiagrams) await ctx.db.delete(diagram._id);
 
     const allVersions = await ctx.db.query("diagram_versions").collect();
@@ -44,8 +43,9 @@ export const wipeDemoData = internalMutation({
         { id: "n6", text: "Dry in Tray Dryer at 60°C for 12 hours", leftItems: [], rightItems: [{ text: "Tray Dryer TD-301", type: "equipment", arrowDir: "left" }, { text: "IPQC: Check LOD ≤ 0.5%", type: "ipqc", arrowDir: "left" }] },
       ]),
       arrowAnnotations: JSON.stringify({ 2: { left: [{ text: "Wet Cake" }], right: [] } }),
-      settings: JSON.stringify({}),
+      settings: JSON.stringify({ finalized: false }),
       status: "draft",
+      finalized: false,
       isDemo: true,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -68,6 +68,10 @@ export const wipeDemoData = internalMutation({
         settings: approvedSettings,
         status: "approved",
         currentRevision: 0,
+        finalized: true,
+        finalizedBy: demoUser.clerkId,
+        finalizedByName: demoUser.name,
+        finalizedAt: Date.now() - 86000000,
         approvedBy: demoApprover.clerkId,
         approvedByName: demoApprover.name,
         approvedAt: Date.now(),
@@ -112,6 +116,10 @@ export const wipeDemoData = internalMutation({
       settings: submittedSettings,
       status: "submitted",
       currentRevision: 0,
+      finalized: true,
+      finalizedBy: demoUser.clerkId,
+      finalizedByName: demoUser.name,
+      finalizedAt: Date.now() - 3600000,
       isDemo: true,
       createdAt: Date.now() - 3600000,
       updatedAt: Date.now(),
