@@ -51,19 +51,7 @@ export default function ProcessDrawApp() {
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
 
-  if (currentUser.disabled) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div>
-          <div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div>
-          <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />
-        </div>
-      </div>
-    );
-  }
-
+  if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div></div>;
   if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
   if (showAdmin && currentUser.role === "it_admin") return <AdminPanel onBack={() => setShowAdmin(false)} />;
 
@@ -77,18 +65,21 @@ export default function ProcessDrawApp() {
       ownerName: d.ownerName,
       blocks: JSON.parse(d.blocks || "[]"),
       arrowAnnotations: JSON.parse(d.arrowAnnotations || "{}"),
-      settings: JSON.parse(d.settings || "{}"),
+      settings: { ...JSON.parse(d.settings || "{}"), finalized: !!d.finalized },
       status: d.status,
       currentRevision: d.currentRevision,
       updatedAt: d.updatedAt,
       isOwn: d.ownerId === currentUser.clerkId,
       rejectionComment: d.rejectionComment,
       rejectedByName: d.rejectedByName,
+      revertComment: d.revertComment,
+      revertedByName: d.revertedByName,
       approvedByName: d.approvedByName,
       revisionCount: d.revisionCount || 0,
     })),
     onSave: async (name: string, blocks: any, annotations: any, settings: any, existingId?: string) => {
-      const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(settings) };
+      const safeSettings = { ...settings, finalized: false };
+      const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(safeSettings) };
       if (existingId) { await updateDiagram({ diagramId: existingId as any, ...data }); return existingId; }
       const newId = await createDiagram(data);
       return newId as string;
@@ -112,34 +103,13 @@ export default function ProcessDrawApp() {
     onMarkAllRead: async () => { await markAllRead(); },
     isDemo: isDemoUser || false,
   };
-
   return <ProcessDrawV2 cloud={cloud} />;
 }
 
 function LoadingScreen({ message }: { message: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}>
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div>
-        <div style={{ fontSize: 13, color: C.light }}>{message}</div>
-        <div style={{ marginTop: 20, width: 32, height: 32, border: `3px solid #e5e0d8`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "20px auto 0" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    </div>
-  );
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 13, color: C.light }}>{message}</div><div style={{ marginTop: 20, width: 32, height: 32, border: `3px solid #e5e0d8`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "20px auto 0" }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div></div>;
 }
 
 function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}>
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
-      <div style={{ textAlign: "center", maxWidth: 400 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div>
-        <div style={{ fontSize: 14, color: C.danger, marginBottom: 8 }}>Connection Error</div>
-        <div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6, marginBottom: 24 }}>{message}</div>
-        <button onClick={onRetry} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "10px 28px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B }}>Retry</button>
-      </div>
-    </div>
-  );
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 14, color: C.danger, marginBottom: 8 }}>Connection Error</div><div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6, marginBottom: 24 }}>{message}</div><button onClick={onRetry} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "10px 28px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B }}>Retry</button></div></div>;
 }
