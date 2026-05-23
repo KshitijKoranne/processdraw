@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import { A4_PAGE_HEIGHT, ARROW_SIZE, CANVAS_CENTER_X, COLORS, SIDE_GAP, SVG_WIDTH } from "./constants";
 import { sideDimensions } from "./geometry";
 import type { ArrowAnnotations, Block, Side } from "./types";
@@ -38,10 +38,20 @@ export function DiagramCanvas({
   onFinalize: () => void;
   onPickSide: (blockId: string, side: Side) => void;
   onPickBetween: (index: number) => void;
-  onToggleSideArrow: (blockId: string, side: Side, itemId: string) => void;
+  onToggleSideArrow?: (blockId: string, side: Side, itemId: string) => void;
 }) {
   void blocks;
+  const [, forceRender] = useState(0);
   const output: any[] = [];
+
+  const toggleArrow = (blockId: string, side: Side, item: any) => {
+    if (onToggleSideArrow) {
+      onToggleSideArrow(blockId, side, item.id);
+      return;
+    }
+    item.arrowDir = item.arrowDir === "right" ? "left" : "right";
+    forceRender((value) => value + 1);
+  };
 
   for (let page = 1; page < layout.pages; page++) {
     output.push(<g key={`page-${page}`}><line x1={42} x2={SVG_WIDTH - 42} y1={page * A4_PAGE_HEIGHT} y2={page * A4_PAGE_HEIGHT} stroke={COLORS.border} strokeDasharray="7 5" /><text x={SVG_WIDTH / 2} y={page * A4_PAGE_HEIGHT - 10} textAnchor="middle" fontSize="11" fill={COLORS.light}>A4 page break</text></g>);
@@ -86,7 +96,7 @@ export function DiagramCanvas({
           onClick={(event: any) => {
             if (readOnly) return;
             event.stopPropagation();
-            onToggleSideArrow(pos.block.id, side, itemPos.item.id);
+            toggleArrow(pos.block.id, side, itemPos.item);
           }}
         >
           <line x1={leftX} x2={rightX} y1={itemPos.centerY} y2={itemPos.centerY} stroke={COLORS.ink} strokeWidth={2} />
