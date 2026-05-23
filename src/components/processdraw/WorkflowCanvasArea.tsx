@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { DiagramCanvas } from "./DiagramCanvas";
 import { buttonStyle } from "./ui";
 import type { ArrowAnnotations, Block, Side } from "./types";
@@ -27,7 +28,7 @@ export default function WorkflowCanvasArea({
   onToggleSideArrow,
   onOpenSaved,
 }: {
-  svgRef: React.RefObject<SVGSVGElement | null>;
+  svgRef: RefObject<SVGSVGElement | null>;
   blocks: Block[];
   annotations: ArrowAnnotations;
   layout: any;
