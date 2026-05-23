@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { COLORS } from "./constants";
 import { buttonStyle } from "./ui";
 
@@ -32,7 +33,7 @@ export default function WorkflowToolbar({
   finalized: boolean;
   status: string;
   canSubmit?: boolean;
-  userButton?: React.ReactNode;
+  userButton?: ReactNode;
   onToggleSidebar: () => void;
   onOpenHistory: () => void;
   onSaveDraft: () => void;
