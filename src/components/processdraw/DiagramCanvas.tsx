@@ -25,6 +25,7 @@ export function DiagramCanvas({
   onFinalize,
   onPickSide,
   onPickBetween,
+  onToggleSideArrow,
 }: {
   svgRef: RefObject<SVGSVGElement | null>;
   layout: any;
@@ -37,6 +38,7 @@ export function DiagramCanvas({
   onFinalize: () => void;
   onPickSide: (blockId: string, side: Side) => void;
   onPickBetween: (index: number) => void;
+  onToggleSideArrow: (blockId: string, side: Side, itemId: string) => void;
 }) {
   void blocks;
   const output: any[] = [];
@@ -47,7 +49,6 @@ export function DiagramCanvas({
 
   layout.positions.forEach((pos: any, index: number) => {
     output.push(<rect key={pos.block.id} x={pos.blockX} y={pos.blockY} width={pos.width} height={pos.height} rx="2" fill="#fff" stroke={COLORS.ink} strokeWidth="1.5" className={!readOnly ? "pd-shape" : ""} onClick={() => !readOnly && onEditBlock(pos.block.id)} />);
-
     pos.lines.forEach((line: string, lineIndex: number) => output.push(<text key={`${pos.block.id}-${lineIndex}`} x={pos.blockX + pos.width / 2} y={pos.blockY + pos.height / 2 - ((pos.lines.length - 1) * 18) / 2 + lineIndex * 18} textAnchor="middle" dominantBaseline="middle" fontSize="13" fontWeight="700" fill={COLORS.ink}>{line}</text>));
 
     if (!readOnly) output.push(<Delete key={`del-${pos.block.id}`} x={pos.blockX + pos.width + 5} y={pos.blockY - 5} onClick={(event: any) => { event.stopPropagation(); onDeleteBlock(pos.block.id); }} />);
@@ -58,7 +59,6 @@ export function DiagramCanvas({
       const y2 = next.blockY;
       const mid = (y1 + y2) / 2;
       output.push(<g key={`arrow-${index}`}><line x1={CANVAS_CENTER_X} x2={CANVAS_CENTER_X} y1={y1} y2={y2} stroke={COLORS.ink} /><polygon points={`${CANVAS_CENTER_X},${y2} ${CANVAS_CENTER_X - 4},${y2 - ARROW_SIZE} ${CANVAS_CENTER_X + 4},${y2 - ARROW_SIZE}`} fill={COLORS.ink} /></g>);
-
       const ann = annotations[index] || { left: [], right: [] };
       (["left", "right"] as Side[]).forEach((side) => (ann[side] || []).forEach((item: any, annIndex: number) => {
         const dimensions = sideDimensions(item.text);
@@ -66,14 +66,12 @@ export function DiagramCanvas({
         const textY = mid + annIndex * (dimensions.height + 4);
         dimensions.lines.forEach((line, lineIndex) => output.push(<text key={`ann-${side}-${index}-${annIndex}-${lineIndex}`} x={textX} y={textY + lineIndex * 14} textAnchor={side === "left" ? "end" : "start"} fontSize="11">{line}</text>));
       }));
-
       if (!readOnly) output.push(<Plus key={`between-${index}`} x={CANVAS_CENTER_X + 18} y={mid + 18} onClick={() => onPickBetween(index)} />);
     }
 
     const drawSide = (items: any[], side: Side) => items.forEach((itemPos) => {
       const isBox = itemPos.item.type !== "label";
       if (isBox) output.push(<rect key={`side-box-${itemPos.item.id}`} x={itemPos.x} y={itemPos.y} width={itemPos.width} height={itemPos.height} fill="#fff" stroke={COLORS.ink} />);
-
       itemPos.lines.forEach((line: string, lineIndex: number) => output.push(<text key={`side-text-${itemPos.item.id}-${lineIndex}`} x={isBox ? itemPos.x + itemPos.width / 2 : side === "left" ? itemPos.x + itemPos.width : itemPos.x} y={itemPos.y + itemPos.height / 2 - ((itemPos.lines.length - 1) * 14) / 2 + lineIndex * 14} textAnchor={isBox ? "middle" : side === "left" ? "end" : "start"} dominantBaseline="middle" fontSize="11">{line}</text>));
 
       const x1 = side === "left" ? itemPos.x + itemPos.width + 4 : pos.blockX + pos.width + 4;
@@ -81,7 +79,21 @@ export function DiagramCanvas({
       const leftX = Math.min(x1, x2) + 4;
       const rightX = Math.max(x1, x2) - 4;
       const headX = itemPos.item.arrowDir === "right" ? rightX : leftX;
-      output.push(<g key={`side-arrow-${itemPos.item.id}`}><line x1={leftX} x2={rightX} y1={itemPos.centerY} y2={itemPos.centerY} stroke={COLORS.ink} /><polygon points={itemPos.item.arrowDir === "right" ? `${headX},${itemPos.centerY} ${headX - ARROW_SIZE},${itemPos.centerY - 4} ${headX - ARROW_SIZE},${itemPos.centerY + 4}` : `${headX},${itemPos.centerY} ${headX + ARROW_SIZE},${itemPos.centerY - 4} ${headX + ARROW_SIZE},${itemPos.centerY + 4}`} fill={COLORS.ink} /></g>);
+      output.push(
+        <g
+          key={`side-arrow-${itemPos.item.id}`}
+          className={!readOnly ? "pd-ctl" : undefined}
+          onClick={(event: any) => {
+            if (readOnly) return;
+            event.stopPropagation();
+            onToggleSideArrow(pos.block.id, side, itemPos.item.id);
+          }}
+        >
+          <line x1={leftX} x2={rightX} y1={itemPos.centerY} y2={itemPos.centerY} stroke={COLORS.ink} strokeWidth={2} />
+          <polygon points={itemPos.item.arrowDir === "right" ? `${headX},${itemPos.centerY} ${headX - ARROW_SIZE},${itemPos.centerY - 4} ${headX - ARROW_SIZE},${itemPos.centerY + 4}` : `${headX},${itemPos.centerY} ${headX + ARROW_SIZE},${itemPos.centerY - 4} ${headX + ARROW_SIZE},${itemPos.centerY + 4}`} fill={COLORS.ink} />
+          {!readOnly && <line x1={leftX} x2={rightX} y1={itemPos.centerY} y2={itemPos.centerY} stroke="transparent" strokeWidth={18} />}
+        </g>
+      );
     });
 
     drawSide(pos.left, "left");
