@@ -5,11 +5,12 @@ import { ANNOTATION_SIDE_OPTIONS, COLORS, SIDE_ITEM_OPTIONS, SVG_WIDTH, A4_PAGE_
 import { buildDiagramLayout } from "./geometry";
 import { DiagramCanvas } from "./DiagramCanvas";
 import RevisionHistoryPanel from "./RevisionHistoryPanel";
+import ESignModal, { type ESignActionType } from "./ESignModal";
 import { HelpModal, PickerModal, ProcessDrawStyles, TextModal, buttonStyle } from "./ui";
 import type { ArrowAnnotations, Block, DiagramRecord, ModalState, Side, SideItem } from "./types";
 
 const makeId = () => "n" + Math.random().toString(36).slice(2, 9);
-const remarks = (action: string) => window.prompt(`${action} remarks are mandatory. Enter remarks:`)?.trim() || null;
+type ESignState = { type: ESignActionType; diagram?: DiagramRecord } | null;
 
 export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -22,6 +23,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const [between, setBetween] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyDiagram, setHistoryDiagram] = useState<DiagramRecord | null>(null);
+  const [esignAction, setEsignAction] = useState<ESignState>(null);
   const [name, setName] = useState("");
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [status, setStatus] = useState("draft");
@@ -70,31 +72,38 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
     return { ...prev, [index]: { ...entry, [side]: [...entry[side], { id: makeId(), text }] } };
   }); };
 
-  const submitForApproval = async () => {
+  const submitForApproval = async (remarks: string) => {
     if (!finalized) return showToast("Click END / Preview before submitting");
     if (!blocks.length) return showToast("Add at least one process step");
     if (!isCloud) return;
-    const r = remarks("Submission"); if (!r) return showToast("Submission remarks are required");
     try {
       const targetName = name || saveName || "Untitled diagram";
       const savedId = await cloud.onSave(targetName, blocks, annotations, { finalized: true }, currentId || undefined);
       const submitId = savedId || currentId;
       if (savedId && !currentId) setCurrentId(savedId);
       if (!submitId) throw new Error("Save failed before submit");
-      await cloud.onSubmit(submitId, r);
-      setName(targetName); setStatus("submitted"); setFinalized(true); showToast("Finalized and submitted for approval");
+      await cloud.onSubmit(submitId, remarks);
+      setName(targetName); setStatus("submitted"); setFinalized(true); setEsignAction(null);
+      showToast("Finalized and submitted for approval");
     } catch (error: any) { showToast(error?.message || "Submit failed"); }
   };
 
-  const approverAction = async (diagram: DiagramRecord, action: "approved" | "reverted" | "rejected") => {
+  const approverAction = async (diagram: DiagramRecord, action: "approved" | "reverted" | "rejected", remarks: string) => {
     if (!diagram._id) return;
-    const label = action === "approved" ? "Approval" : action === "reverted" ? "Revert" : "Rejection";
-    const r = remarks(label); if (!r) return showToast(`${label} remarks are required`);
     try {
-      if (action === "reverted") await cloud.onSendBack(diagram._id, r);
-      else await cloud.onReview(diagram._id, action, r);
+      if (action === "reverted") await cloud.onSendBack(diagram._id, remarks);
+      else await cloud.onReview(diagram._id, action, remarks);
+      setEsignAction(null);
       showToast(action === "approved" ? "Diagram approved" : action === "reverted" ? "Diagram reverted for correction" : "Diagram rejected and workflow closed");
     } catch (error: any) { showToast(error?.message || "Action failed"); }
+  };
+
+  const handleESignConfirm = async (remarks: string) => {
+    if (!esignAction) return;
+    if (esignAction.type === "submit") return submitForApproval(remarks);
+    if (!esignAction.diagram) return;
+    const action = esignAction.type === "approve" ? "approved" : esignAction.type === "revert" ? "reverted" : "rejected";
+    return approverAction(esignAction.diagram, action, remarks);
   };
 
   const exportCanvas = async (asPdf = false) => {
@@ -140,9 +149,9 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
               {diagram._id && <button style={buttonStyle()} onClick={() => setHistoryDiagram(diagram)}>History</button>}
               {cloud?.isApprover && diagram.status === "submitted" && <>
-                <button style={buttonStyle("success")} onClick={() => approverAction(diagram, "approved")}>Approve</button>
-                <button style={buttonStyle("warn")} onClick={() => approverAction(diagram, "reverted")}>Revert</button>
-                <button style={buttonStyle("danger")} onClick={() => approverAction(diagram, "rejected")}>Reject</button>
+                <button style={buttonStyle("success")} onClick={() => setEsignAction({ type: "approve", diagram })}>Approve</button>
+                <button style={buttonStyle("warn")} onClick={() => setEsignAction({ type: "revert", diagram })}>Revert</button>
+                <button style={buttonStyle("danger")} onClick={() => setEsignAction({ type: "reject", diagram })}>Reject</button>
               </>}
             </div>
             {diagram.status === "rejected" && diagram.rejectionComment && <span style={{ display: "block", color: COLORS.danger, marginTop: 6 }}>Rejected: {diagram.rejectionComment}</span>}
@@ -159,7 +168,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
             {blocks.length > 0 && canEdit && <button style={buttonStyle("danger")} onClick={newDiagram}>New</button>}
             {blocks.length > 0 && !finalized && canEdit && <button style={buttonStyle("warn")} onClick={() => { setFinalized(true); showToast("Diagram finalized. Submit will save this final version."); }}>END / Preview</button>}
             {blocks.length > 0 && finalized && canEdit && <button style={buttonStyle()} onClick={() => { setFinalized(false); showToast("Editing resumed. Finalize again before submission."); }}>Edit</button>}
-            {blocks.length > 0 && finalized && isCloud && status === "draft" && cloud.canEdit && <button style={buttonStyle("warn")} onClick={submitForApproval}>Submit</button>}
+            {blocks.length > 0 && finalized && isCloud && status === "draft" && cloud.canEdit && <button style={buttonStyle("warn")} onClick={() => setEsignAction({ type: "submit" })}>Submit</button>}
             {blocks.length > 0 && finalized && (!isCloud || status === "approved") && <button style={buttonStyle("primary")} onClick={() => exportCanvas(false)}>PNG</button>}
             {blocks.length > 0 && finalized && (!isCloud || status === "approved") && <button style={buttonStyle("purple")} onClick={() => exportCanvas(true)}>PDF</button>}
             {isCloud && cloud.UserButton}
@@ -167,6 +176,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
         {blocks.length ? <><div className="pd-bar"><span>{name || "Untitled diagram"} · {blocks.length} steps · {layout.pages} A4 page{layout.pages > 1 ? "s" : ""} · {status.toUpperCase()} · {finalized ? "FINALIZED" : "DRAFT"}</span><span><button style={buttonStyle()} onClick={() => setZoom((v) => Math.max(.55, +(v - .1).toFixed(2)))}>−</button> <button style={buttonStyle()} onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button> <button style={buttonStyle()} onClick={() => setZoom((v) => Math.min(1.6, +(v + .1).toFixed(2)))}>+</button></span></div><div className="pd-canvas"><div className="pd-wrap" style={{ transform: `scale(${zoom})` }}><DiagramCanvas svgRef={svgRef} layout={layout} blocks={blocks} annotations={annotations} readOnly={readOnly} onEditBlock={(blockId) => setModal({ type: "edit", blockId })} onDeleteBlock={deleteBlock} onAddBlock={() => setModal({ type: "new" })} onFinalize={() => { setFinalized(true); showToast("Diagram finalized. Submit will save this final version."); }} onPickSide={(blockId, side) => setPicker({ blockId, side })} onPickBetween={(index) => setBetween({ index })} /></div></div></> : <div className="pd-empty"><h2>{isCloud && cloud.role === "approver" ? "Review diagrams" : "Build a process flow"}</h2><p>Create print-ready process flow diagrams with clean GMP-style layout.</p>{canEdit && <button className="pd-plus" onClick={() => setModal({ type: "new" })}>+</button>}<button style={buttonStyle("primary")} onClick={() => setSidebarOpen(true)}>{diagrams.length ? `Open saved (${diagrams.length})` : "Saved diagrams"}</button></div>}
       </main>
 
+      {esignAction && <ESignModal action={esignAction.type} diagramName={esignAction.diagram?.name || name} userName={cloud?.userName} userEmail={cloud?.userEmail} role={cloud?.role} onCancel={() => setEsignAction(null)} onConfirm={handleESignConfirm} />}
       {historyDiagram?._id && <RevisionHistoryPanel diagramId={historyDiagram._id} diagramName={historyDiagram.name} onClose={() => setHistoryDiagram(null)} />}
       {modal && modal.type !== "help" && <TextModal title={modalTitle()} initial={modalInitial()} placeholder="e.g. Reactor\nGLR-805" onOk={finishModal} onClose={() => setModal(null)} />}
       {modal?.type === "help" && <HelpModal onClose={() => setModal(null)} />}
