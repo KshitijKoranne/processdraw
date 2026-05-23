@@ -1,7 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
 
-// Internal helper to log an action — called from other mutations
 export async function logAction(
   ctx: any,
   data: {
@@ -15,79 +14,57 @@ export async function logAction(
     details?: string;
   }
 ) {
-  await ctx.db.insert("audit_log", {
-    ...data,
-    timestamp: Date.now(),
-  });
+  await ctx.db.insert("audit_log", { ...data, timestamp: Date.now() });
 }
 
-// Query audit logs (IT Admin only) — most recent first
+function parseDetails(raw?: string) {
+  try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+}
+
+function sameDemoScope(user: any, log: any) {
+  const details = parseDetails(log.details);
+  if (details.isDemo !== undefined) return !!details.isDemo === !!user.isDemo;
+  if (user.isDemo) return log.actorId === user.clerkId;
+  return true;
+}
+
 export const list = query({
-  args: {
-    limit: v.optional(v.number()),
-    targetType: v.optional(v.string()),
-    targetId: v.optional(v.string()),
-  },
+  args: { limit: v.optional(v.number()), targetType: v.optional(v.string()), targetId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user || user.role !== "it_admin") return [];
+    const user = await ctx.db.query("users").withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject)).unique();
+    if (!user || user.role !== "it_admin" || user.disabled) return [];
 
     let query;
     if (args.targetType && args.targetId) {
-      query = ctx.db
-        .query("audit_log")
-        .withIndex("by_target", (q: any) =>
-          q.eq("targetType", args.targetType).eq("targetId", args.targetId)
-        )
-        .order("desc");
+      query = ctx.db.query("audit_log").withIndex("by_target", (q: any) => q.eq("targetType", args.targetType).eq("targetId", args.targetId)).order("desc");
     } else {
-      query = ctx.db
-        .query("audit_log")
-        .withIndex("by_timestamp")
-        .order("desc");
+      query = ctx.db.query("audit_log").withIndex("by_timestamp").order("desc");
     }
 
     const results = await query.collect();
-    return results.slice(0, args.limit || 100);
+    return results.filter((log: any) => sameDemoScope(user, log)).slice(0, args.limit || 100);
   },
 });
 
-// Get audit log for a specific diagram (owner or admin can see)
 export const getForDiagram = query({
-  args: { diagramId: v.string() },
+  args: { diagramId: v.id("diagrams") },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
+    const user = await ctx.db.query("users").withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject)).unique();
+    if (!user || user.disabled) return [];
+    const diagram = await ctx.db.get(args.diagramId);
+    if (!diagram || diagram.isDemo !== !!user.isDemo) return [];
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q: any) => q.eq("clerkId", identity.subject))
-      .unique();
+    const allowed =
+      user.role === "it_admin" ||
+      (user.role === "user" && diagram.ownerId === user.clerkId) ||
+      (user.role === "approver" && ["submitted", "approved", "rejected"].includes(diagram.status)) ||
+      (user.role === "viewer" && diagram.status === "approved");
+    if (!allowed) return [];
 
-    if (!user) return [];
-
-    // Check access
-    const diagram = await ctx.db
-      .query("audit_log")
-      .withIndex("by_target", (q: any) =>
-        q.eq("targetType", "diagram").eq("targetId", args.diagramId)
-      )
-      .order("desc")
-      .collect();
-
-    // Admin sees all, others only see logs for their own diagrams
-    if (user.role === "it_admin") return diagram;
-
-    // Check if the diagram belongs to this user
-    return diagram.filter(
-      (log) => log.actorId === user.clerkId
-    );
+    return await ctx.db.query("audit_log").withIndex("by_target", (q: any) => q.eq("targetType", "diagram").eq("targetId", String(args.diagramId))).order("desc").collect();
   },
 });
