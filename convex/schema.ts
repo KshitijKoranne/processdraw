@@ -25,6 +25,10 @@ export default defineSchema({
     settings: v.string(),
     status: v.string(),
     currentRevision: v.optional(v.number()),
+    finalized: v.optional(v.boolean()),
+    finalizedBy: v.optional(v.string()),
+    finalizedByName: v.optional(v.string()),
+    finalizedAt: v.optional(v.number()),
     approvedBy: v.optional(v.string()),
     approvedByName: v.optional(v.string()),
     approvedAt: v.optional(v.number()),
@@ -32,6 +36,10 @@ export default defineSchema({
     rejectedByName: v.optional(v.string()),
     rejectionComment: v.optional(v.string()),
     rejectedAt: v.optional(v.number()),
+    revertedBy: v.optional(v.string()),
+    revertedByName: v.optional(v.string()),
+    revertComment: v.optional(v.string()),
+    revertedAt: v.optional(v.number()),
     revisionCount: v.optional(v.number()),
     isDemo: v.optional(v.boolean()),
     createdAt: v.number(),
@@ -71,7 +79,6 @@ export default defineSchema({
     .index("by_diagram", ["diagramId"])
     .index("by_diagram_revision", ["diagramId", "revisionNumber"]),
 
-  // Notifications — alerts for users when their diagrams are reviewed
   notifications: defineTable({
     userId: v.string(),
     type: v.string(),
