@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { useUser, useAuth, UserButton } from "@clerk/nextjs";
+import { useUser, useAuth, UserButton, useClerk } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
 import ProcessDrawV2 from "./ProcessDrawV2";
 import AdminPanel from "./AdminPanel";
@@ -10,10 +10,14 @@ import AdminPanel from "./AdminPanel";
 const H = "'Fraunces', 'Georgia', serif";
 const B = "'Outfit', 'Helvetica Neue', sans-serif";
 const C = { bg: "#f6f3ee", surface: "#fff", text: "#2c2824", mid: "#8a8078", light: "#b5ada5", accent: "#3d8b8b", danger: "#c47a6a", success: "#5a9e7a", warn: "#d4a040" };
+const DEMO_TIMEOUT_MS = 30 * 60 * 1000;
+const REAL_TIMEOUT_MS = 60 * 60 * 1000;
+const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
 
 export default function ProcessDrawApp() {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
   const { isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const upsertUser = useMutation(api.users.upsertUser);
   const currentUser = useQuery(api.users.getCurrentUser);
   const diagrams = useQuery(api.diagrams.listAll);
@@ -35,6 +39,7 @@ export default function ProcessDrawApp() {
   const [syncState, setSyncState] = useState<"idle" | "syncing" | "done" | "error">("idle");
   const [syncError, setSyncError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const syncUser = useCallback(async () => {
     if (!clerkUser || !isSignedIn) return;
@@ -47,6 +52,53 @@ export default function ProcessDrawApp() {
   useEffect(() => { if (syncState === "error" && retryCount < 3) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 2000); return () => clearTimeout(t); } }, [syncState, retryCount]);
   useEffect(() => { if (syncState === "done" && currentUser === null && retryCount < 5) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 1500); return () => clearTimeout(t); } }, [syncState, currentUser, retryCount]);
 
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser?.id || !currentUser) return;
+
+    const timeoutMs = currentUser.isDemo ? DEMO_TIMEOUT_MS : REAL_TIMEOUT_MS;
+    const storageKey = `processdraw:lastActivity:${clerkUser.id}`;
+    const now = Date.now();
+    const stored = Number(window.localStorage.getItem(storageKey) || now);
+
+    if (Number.isFinite(stored) && now - stored > timeoutMs) {
+      window.localStorage.removeItem(storageKey);
+      setSessionExpired(true);
+      void signOut({ redirectUrl: "/" });
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, String(now));
+    let lastWrite = now;
+
+    const recordActivity = () => {
+      const current = Date.now();
+      if (current - lastWrite < 10000) return;
+      lastWrite = current;
+      window.localStorage.setItem(storageKey, String(current));
+    };
+
+    const checkExpiry = () => {
+      const lastActivity = Number(window.localStorage.getItem(storageKey) || Date.now());
+      if (Number.isFinite(lastActivity) && Date.now() - lastActivity > timeoutMs) {
+        window.localStorage.removeItem(storageKey);
+        setSessionExpired(true);
+        void signOut({ redirectUrl: "/" });
+      }
+    };
+
+    ACTIVITY_EVENTS.forEach((eventName) => window.addEventListener(eventName, recordActivity, { passive: true }));
+    const intervalId = window.setInterval(checkExpiry, 60 * 1000);
+    const visibilityHandler = () => { if (!document.hidden) checkExpiry(); };
+    document.addEventListener("visibilitychange", visibilityHandler);
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((eventName) => window.removeEventListener(eventName, recordActivity));
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", visibilityHandler);
+    };
+  }, [isSignedIn, clerkUser?.id, currentUser, signOut]);
+
+  if (sessionExpired) return <LoadingScreen message="Session expired. Signing you out..." />;
   if (!isClerkLoaded || !isSignedIn) return <LoadingScreen message="Authenticating..." />;
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
