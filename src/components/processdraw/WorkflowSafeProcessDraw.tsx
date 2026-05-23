@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ANNOTATION_SIDE_OPTIONS, COLORS, SIDE_ITEM_OPTIONS } from "./constants";
+import { ANNOTATION_SIDE_OPTIONS, SIDE_ITEM_OPTIONS } from "./constants";
 import { buildDiagramLayout } from "./geometry";
 import RevisionHistoryPanel from "./RevisionHistoryPanel";
 import ESignModal, { type ESignActionType } from "./ESignModal";
