@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useUser, useAuth, UserButton, useClerk } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
@@ -49,6 +49,27 @@ export default function ProcessDrawApp() {
   useEffect(() => { if (isClerkLoaded && isSignedIn && clerkUser && syncState === "idle") syncUser(); }, [isClerkLoaded, isSignedIn, clerkUser, syncState, syncUser]);
   useEffect(() => { if (syncState === "error" && retryCount < 3) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 2000); return () => clearTimeout(t); } }, [syncState, retryCount]);
   useEffect(() => { if (syncState === "done" && currentUser === null && retryCount < 5) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 1500); return () => clearTimeout(t); } }, [syncState, currentUser, retryCount]);
+
+  // Parse diagram JSON only when the data actually changes — doing this
+  // inline made every render re-parse every diagram.
+  const parsedDiagrams = useMemo(() => (diagrams || []).map((d: any) => ({
+    _id: d._id,
+    name: d.name,
+    ownerName: d.ownerName,
+    blocks: JSON.parse(d.blocks || "[]"),
+    arrowAnnotations: JSON.parse(d.arrowAnnotations || "{}"),
+    settings: { ...JSON.parse(d.settings || "{}"), finalized: !!d.finalized },
+    status: d.status,
+    currentRevision: d.currentRevision,
+    updatedAt: d.updatedAt,
+    isOwn: d.ownerId === currentUser?.clerkId,
+    rejectionComment: d.rejectionComment,
+    rejectedByName: d.rejectedByName,
+    revertComment: d.revertComment,
+    revertedByName: d.revertedByName,
+    approvedByName: d.approvedByName,
+    revisionCount: d.revisionCount || 0,
+  })), [diagrams, currentUser?.clerkId]);
 
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id || !currentUser) return;
@@ -108,24 +129,7 @@ export default function ProcessDrawApp() {
     role: currentUser.role,
     userName: currentUser.name,
     userEmail: currentUser.email,
-    diagrams: (diagrams || []).map((d: any) => ({
-      _id: d._id,
-      name: d.name,
-      ownerName: d.ownerName,
-      blocks: JSON.parse(d.blocks || "[]"),
-      arrowAnnotations: JSON.parse(d.arrowAnnotations || "{}"),
-      settings: { ...JSON.parse(d.settings || "{}"), finalized: !!d.finalized },
-      status: d.status,
-      currentRevision: d.currentRevision,
-      updatedAt: d.updatedAt,
-      isOwn: d.ownerId === currentUser.clerkId,
-      rejectionComment: d.rejectionComment,
-      rejectedByName: d.rejectedByName,
-      revertComment: d.revertComment,
-      revertedByName: d.revertedByName,
-      approvedByName: d.approvedByName,
-      revisionCount: d.revisionCount || 0,
-    })),
+    diagrams: parsedDiagrams,
     onSave: async (name: string, blocks: any, annotations: any, settings: any, existingId?: string) => {
       const safeSettings = { ...settings, finalized: false };
       const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(safeSettings) };
