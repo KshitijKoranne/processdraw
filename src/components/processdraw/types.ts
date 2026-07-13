@@ -37,6 +37,10 @@ export type DiagramRecord = {
   rejectionComment?: string;
   rejectedByName?: string;
   approvedByName?: string;
+  revertComment?: string;
+  revertedByName?: string;
+  ownerName?: string;
+  updatedAt?: number;
   isOwn?: boolean;
 };
 

@@ -87,4 +87,7 @@ The first user to sign up automatically becomes IT Admin.
 - Convex (real-time database)
 - Clerk (authentication)
 - SVG-based diagram renderer
-- A4 auto-split export
+- A4 auto-split PNG/PDF export with signature footer on every page
+- Watermarked exports for unapproved diagrams (DRAFT / PENDING APPROVAL / REJECTED)
+- In-app notifications for submissions, approvals, reverts, and rejections
+- Immutable audit trail and e-sign confirmations for all workflow actions

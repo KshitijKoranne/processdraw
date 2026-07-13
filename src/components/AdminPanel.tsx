@@ -102,7 +102,7 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
 
   return (
     <div style={{ height: "100vh", background: C.bg, fontFamily: BODY, display: "flex", flexDirection: "column" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      
       <div style={{ padding: "12px 24px", borderBottom: `1px solid ${C.border}`, background: C.surface, display: "flex", alignItems: "center", gap: 16 }}>
         {!isFullScreen && <button onClick={onBack} style={{ ...btnS(C.surfaceAlt, C.textMuted, `1px solid ${C.border}`), padding: "6px 14px", fontSize: 12 }}>← Back</button>}
         {isFullScreen && <span style={{ fontSize: 18, fontWeight: 700, fontFamily: HEADING, color: C.text }}>ProcessDraw</span>}

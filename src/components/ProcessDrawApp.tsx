@@ -34,8 +34,6 @@ export default function ProcessDrawApp() {
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
 
-  const [showAdmin, setShowAdmin] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [syncState, setSyncState] = useState<"idle" | "syncing" | "done" | "error">("idle");
   const [syncError, setSyncError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
@@ -103,9 +101,8 @@ export default function ProcessDrawApp() {
   if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
   if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
 
-  if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div></div>;
+  if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div></div>;
   if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
-  if (showAdmin && currentUser.role === "it_admin") return <AdminPanel onBack={() => setShowAdmin(false)} />;
 
   const cloud = {
     role: currentUser.role,
@@ -141,16 +138,12 @@ export default function ProcessDrawApp() {
     onReview: async (id: string, decision: string, remarks: string) => { await reviewDiagram({ diagramId: id as any, decision, remarks }); },
     onRevise: async (id: string, remarks: string) => { await reviseDiagram({ diagramId: id as any, remarks }); },
     onSendBack: async (id: string, remarks: string) => { await sendBackDiagram({ diagramId: id as any, remarks }); },
-    isAdmin: false,
     isApprover: currentUser.role === "approver",
     canEdit: currentUser.role === "user",
     canCreate: currentUser.role === "user",
-    onShowAdmin: () => setShowAdmin(true),
     UserButton: <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />,
     notifications: notifications || [],
     unreadCount: unreadCount || 0,
-    showNotifications,
-    onToggleNotifications: () => setShowNotifications(!showNotifications),
     onMarkRead: async (id: string) => { await markRead({ notificationId: id as any }); },
     onMarkAllRead: async () => { await markAllRead(); },
     isDemo: isDemoUser || false,
@@ -159,9 +152,9 @@ export default function ProcessDrawApp() {
 }
 
 function LoadingScreen({ message }: { message: string }) {
-  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 13, color: C.light }}>{message}</div><div style={{ marginTop: 20, width: 32, height: 32, border: `3px solid #e5e0d8`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "20px auto 0" }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div></div>;
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 13, color: C.light }}>{message}</div><div style={{ marginTop: 20, width: 32, height: 32, border: `3px solid #e5e0d8`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "20px auto 0" }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div></div>;
 }
 
 function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" /><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 14, color: C.danger, marginBottom: 8 }}>Connection Error</div><div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6, marginBottom: 24 }}>{message}</div><button onClick={onRetry} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "10px 28px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B }}>Retry</button></div></div>;
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, fontFamily: B }}><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: C.text, fontFamily: H, marginBottom: 12 }}>ProcessDraw</div><div style={{ fontSize: 14, color: C.danger, marginBottom: 8 }}>Connection Error</div><div style={{ fontSize: 13, color: C.mid, lineHeight: 1.6, marginBottom: 24 }}>{message}</div><button onClick={onRetry} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "10px 28px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B }}>Retry</button></div></div>;
 }

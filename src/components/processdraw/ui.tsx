@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BODY_FONT, COLORS, HEADING_FONT } from "./constants";
+
+export function useEscapeKey(onClose: () => void) {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+}
 
 export function buttonStyle(kind: "primary" | "ghost" | "danger" | "warn" | "purple" | "success" = "ghost") {
   const map: Record<string, [string, string, string]> = {
@@ -25,8 +35,38 @@ export function buttonStyle(kind: "primary" | "ghost" | "danger" | "warn" | "pur
   };
 }
 
+export function ConfirmModal({ title, message, confirmLabel = "Confirm", tone = "danger", onConfirm, onClose }: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  tone?: "danger" | "primary" | "warn";
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  useEscapeKey(onClose);
+  return (
+    <div className="pd-back" onClick={onClose}>
+      <div className="pd-modal" role="alertdialog" aria-label={title} onClick={(event) => event.stopPropagation()}>
+        <h3>{title}</h3>
+        <p style={{ color: COLORS.muted, fontSize: 13, lineHeight: 1.55, margin: "0 0 6px" }}>{message}</p>
+        <div className="pd-modal-actions">
+          <button style={buttonStyle()} onClick={onClose}>Cancel</button>
+          <button
+            style={tone === "danger" ? { ...buttonStyle("ghost"), background: COLORS.danger, color: "#fff", border: `1px solid ${COLORS.danger}` } : buttonStyle(tone)}
+            autoFocus
+            onClick={() => { onConfirm(); onClose(); }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TextModal({ title, initial = "", placeholder, onOk, onClose }: any) {
   const [value, setValue] = useState(initial);
+  useEscapeKey(onClose);
   return (
     <div className="pd-back" onClick={onClose}>
       <div className="pd-modal" onClick={(event) => event.stopPropagation()}>
@@ -54,6 +94,7 @@ export function TextModal({ title, initial = "", placeholder, onOk, onClose }: a
 }
 
 export function PickerModal({ title, options, onPick, onClose }: any) {
+  useEscapeKey(onClose);
   return (
     <div className="pd-back" onClick={onClose}>
       <div className="pd-modal" onClick={(event) => event.stopPropagation()}>
@@ -71,15 +112,27 @@ export function PickerModal({ title, options, onPick, onClose }: any) {
 }
 
 export function HelpModal({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
+  const rows: [string, string][] = [
+    ["1. Build", "Add process steps with the + button. Click a block to edit it, or use the side + buttons to attach inputs, equipment, and IPQC checks."],
+    ["2. Annotate", "Use the + next to a connecting arrow to add text beside it (e.g. intermediate stream names). Click a side arrow to flip its direction."],
+    ["3. Finalize", "Click END / Preview to lock the layout for review. You can still go back with Edit — the diagram returns to draft until finalized again."],
+    ["4. Submit", "Submit sends the finalized diagram for approval with your e-signature and remarks. Approvers can approve, revert for correction, or reject."],
+    ["5. Export", "Finalized diagrams export as print-ready PNG or PDF with signature footers. Exports of unapproved diagrams carry a watermark."],
+  ];
   return (
     <div className="pd-back" onClick={onClose}>
-      <div className="pd-modal" onClick={(event) => event.stopPropagation()}>
-        <h3>Workflow rule</h3>
-        <p style={{ color: COLORS.muted, fontSize: 13, lineHeight: 1.55 }}>
-          Users must click END / Preview before submission. Submit saves the finalized version with settings.finalized = true.
-          If the user edits again, the diagram returns to a draft/finalize-required state.
-        </p>
-        <button style={buttonStyle("primary")} onClick={onClose}>Got it</button>
+      <div className="pd-modal" role="dialog" aria-label="How ProcessDraw works" onClick={(event) => event.stopPropagation()}>
+        <h3>How it works</h3>
+        {rows.map(([title, desc]) => (
+          <div key={title} style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{title}</div>
+            <div style={{ fontSize: 12.5, color: COLORS.muted, lineHeight: 1.5, marginTop: 2 }}>{desc}</div>
+          </div>
+        ))}
+        <div className="pd-modal-actions">
+          <button style={buttonStyle("primary")} onClick={onClose}>Got it</button>
+        </div>
       </div>
     </div>
   );

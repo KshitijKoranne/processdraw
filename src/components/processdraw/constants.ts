@@ -24,6 +24,21 @@ export const CANVAS_CENTER_X = 400;
 export const VERTICAL_GAP = 84;
 export const SIDE_GAP = 54;
 export const ARROW_SIZE = 8;
+export const PAGE_FOOTER_HEIGHT = 64;
+
+export const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  submitted: "Pending approval",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+export const STATUS_COLORS: Record<string, string> = {
+  draft: COLORS.muted,
+  submitted: COLORS.warn,
+  approved: COLORS.success,
+  rejected: COLORS.danger,
+};
 
 export const SIDE_ITEM_OPTIONS = [
   { id: "label", name: "Label", desc: "Text like Methanol" },

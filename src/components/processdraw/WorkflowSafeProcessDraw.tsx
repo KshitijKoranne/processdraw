@@ -5,18 +5,37 @@ import { ANNOTATION_SIDE_OPTIONS, SIDE_ITEM_OPTIONS } from "./constants";
 import { buildDiagramLayout } from "./geometry";
 import RevisionHistoryPanel from "./RevisionHistoryPanel";
 import ESignModal, { type ESignActionType } from "./ESignModal";
+import NotificationsBell from "./NotificationsPanel";
 import WorkflowSidebar from "./WorkflowSidebar";
 import WorkflowToolbar from "./WorkflowToolbar";
 import WorkflowCanvasArea from "./WorkflowCanvasArea";
 import { exportDiagramCanvas } from "./workflowExport";
-import { HelpModal, PickerModal, ProcessDrawStyles, TextModal } from "./ui";
+import { ConfirmModal, HelpModal, PickerModal, ProcessDrawStyles, TextModal } from "./ui";
 import type { ArrowAnnotations, Block, DiagramRecord, ModalState, Side, SideItem } from "./types";
 
 const makeId = () => "n" + Math.random().toString(36).slice(2, 9);
 type ESignState = { type: ESignActionType; diagram?: DiagramRecord } | null;
+type ConfirmState = { title: string; message: string; confirmLabel: string; onConfirm: () => void } | null;
+
+// Older records may be missing ids on side items; ids are required for
+// editing (arrow toggles, React keys), so backfill them on load.
+const normalizeBlocks = (blocks: Block[]): Block[] =>
+  (blocks || []).map((block) => ({
+    ...block,
+    id: block.id || makeId(),
+    leftItems: (block.leftItems || []).map((item) => ({ ...item, id: item.id || makeId() })),
+    rightItems: (block.rightItems || []).map((item) => ({ ...item, id: item.id || makeId() })),
+  }));
+
+const WATERMARKS: Record<string, string> = {
+  draft: "DRAFT",
+  submitted: "PENDING APPROVAL",
+  rejected: "REJECTED",
+};
 
 export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const toastTimer = useRef<number | null>(null);
   const isCloud = !!cloud;
 
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -25,6 +44,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [picker, setPicker] = useState<any>(null);
   const [between, setBetween] = useState<any>(null);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyDiagram, setHistoryDiagram] = useState<DiagramRecord | null>(null);
   const [esignAction, setEsignAction] = useState<ESignState>(null);
@@ -39,25 +59,27 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   const canEdit = !isCloud || (cloud?.canEdit && status === "draft");
   const readOnly = finalized || !canEdit;
   const layout = useMemo(() => buildDiagramLayout(blocks, annotations), [blocks, annotations]);
+  const exportWatermark = isCloud && status !== "approved" ? WATERMARKS[status] || "DRAFT" : undefined;
 
   const showToast = (msg: string) => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2600);
   };
 
   const markDirty = () => {
     if (finalized) setFinalized(false);
   };
 
-  const saveDiagram = async (targetName = name || saveName || "Untitled diagram", shouldFinalize = finalized) => {
+  const saveDiagram = async (targetName = name || saveName || "Untitled diagram") => {
     try {
       if (isCloud) {
-        const newId = await cloud.onSave(targetName, blocks, annotations, { finalized: shouldFinalize }, currentId || undefined);
+        const newId = await cloud.onSave(targetName, blocks, annotations, {}, currentId || undefined);
         if (newId && !currentId) setCurrentId(newId);
       }
       setName(targetName);
       setSaveName("");
-      showToast(shouldFinalize ? `Finalized and saved ${targetName}` : `Saved ${targetName}`);
+      showToast(`Saved ${targetName}`);
       return true;
     } catch (error: any) {
       showToast(error?.message || "Save failed");
@@ -66,7 +88,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   };
 
   const loadDiagram = (diagram: DiagramRecord) => {
-    setBlocks(diagram.blocks || []);
+    setBlocks(normalizeBlocks(diagram.blocks || []));
     setAnnotations(diagram.arrowAnnotations || {});
     setName(diagram.name || "");
     setCurrentId(diagram._id || diagram.id || null);
@@ -76,13 +98,42 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
     showToast(`Loaded ${diagram.name || "diagram"}`);
   };
 
-  const newDiagram = () => {
+  const resetCanvas = () => {
     setBlocks([]);
     setAnnotations({});
     setName("");
     setCurrentId(null);
     setStatus("draft");
     setFinalized(false);
+  };
+
+  const newDiagram = () => {
+    if (!blocks.length) return resetCanvas();
+    setConfirm({
+      title: "Start a new diagram?",
+      message: currentId
+        ? "The canvas will be cleared. Changes since your last save will be lost."
+        : "The canvas will be cleared. This diagram has not been saved and will be lost.",
+      confirmLabel: "Clear canvas",
+      onConfirm: resetCanvas,
+    });
+  };
+
+  const deleteSavedDiagram = (diagram: DiagramRecord) => {
+    setConfirm({
+      title: "Delete diagram?",
+      message: `"${diagram.name || "Untitled diagram"}" will be permanently deleted. This cannot be undone.`,
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        try {
+          await cloud.onDelete(diagram._id);
+          if (currentId && diagram._id === currentId) resetCanvas();
+          showToast(`Deleted ${diagram.name || "diagram"}`);
+        } catch (error: any) {
+          showToast(error?.message || "Delete failed");
+        }
+      },
+    });
   };
 
   const addBlock = (text: string) => {
@@ -96,8 +147,34 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
   };
 
   const deleteBlock = (blockId: string) => {
+    const index = blocks.findIndex((block) => block.id === blockId);
+    if (index === -1) return;
     markDirty();
     setBlocks((prev) => prev.filter((block) => block.id !== blockId));
+    // Arrow annotations are keyed by block index; shift them so they stay
+    // attached to the same arrows after the deletion.
+    setAnnotations((prev) => {
+      const next: ArrowAnnotations = {};
+      Object.entries(prev).forEach(([key, entry]) => {
+        const annIndex = Number(key);
+        if (annIndex < index) next[annIndex] = entry;
+        else if (annIndex > index) next[annIndex - 1] = entry;
+        // annIndex === index: the arrow below the deleted block is gone.
+      });
+      return next;
+    });
+  };
+
+  const confirmDeleteBlock = (blockId: string) => {
+    const block = blocks.find((item) => item.id === blockId);
+    const hasSideItems = !!block && (block.leftItems.length > 0 || block.rightItems.length > 0);
+    if (!hasSideItems) return deleteBlock(blockId);
+    setConfirm({
+      title: "Delete process step?",
+      message: "This step and all of its side items (inputs, equipment, IPQC checks) will be removed.",
+      confirmLabel: "Delete step",
+      onConfirm: () => deleteBlock(blockId),
+    });
   };
 
   const toggleSideArrow = (blockId: string, side: Side, itemId: string) => {
@@ -134,7 +211,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
 
     try {
       const targetName = name || saveName || "Untitled diagram";
-      const savedId = await cloud.onSave(targetName, blocks, annotations, { finalized: true }, currentId || undefined);
+      const savedId = await cloud.onSave(targetName, blocks, annotations, {}, currentId || undefined);
       const submitId = savedId || currentId;
       if (savedId && !currentId) setCurrentId(savedId);
       if (!submitId) throw new Error("Save failed before submit");
@@ -154,6 +231,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
     try {
       if (action === "reverted") await cloud.onSendBack(diagram._id, remarks);
       else await cloud.onReview(diagram._id, action, remarks);
+      if (currentId && diagram._id === currentId) setStatus(action === "reverted" ? "draft" : action);
       setEsignAction(null);
       showToast(action === "approved" ? "Diagram approved" : action === "reverted" ? "Diagram reverted for correction" : "Diagram rejected and workflow closed");
     } catch (error: any) {
@@ -183,7 +261,6 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
 
   return (
     <div className="pd">
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
       <ProcessDrawStyles />
 
       {sidebarOpen && (
@@ -191,9 +268,11 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
           diagrams={diagrams}
           saveName={saveName}
           setSaveName={setSaveName}
-          onSaveCurrent={() => saveDiagram(undefined, finalized)}
+          canEdit={cloud ? cloud.canEdit : true}
+          onSaveCurrent={() => saveDiagram()}
           onLoadDiagram={loadDiagram}
           onOpenHistory={setHistoryDiagram}
+          onDelete={deleteSavedDiagram}
           isApprover={cloud?.isApprover}
           onApprove={(diagram) => setEsignAction({ type: "approve", diagram })}
           onRevert={(diagram) => setEsignAction({ type: "revert", diagram })}
@@ -212,16 +291,24 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
           status={status}
           canSubmit={cloud?.canEdit}
           userButton={cloud?.UserButton}
+          notificationsBell={isCloud ? (
+            <NotificationsBell
+              notifications={cloud.notifications || []}
+              unreadCount={cloud.unreadCount || 0}
+              onMarkRead={cloud.onMarkRead}
+              onMarkAllRead={cloud.onMarkAllRead}
+            />
+          ) : undefined}
           onToggleSidebar={() => setSidebarOpen((value) => !value)}
           onOpenHistory={() => setHistoryDiagram({ _id: currentId || undefined, name })}
-          onSaveDraft={() => saveDiagram(name || "Untitled diagram", false)}
+          onSaveDraft={() => saveDiagram(name || "Untitled diagram")}
           onHelp={() => setModal({ type: "help" })}
           onNew={newDiagram}
           onFinalize={() => { setFinalized(true); showToast("Diagram finalized. Submit will save this final version."); }}
           onEdit={() => { setFinalized(false); showToast("Editing resumed. Finalize again before submission."); }}
           onSubmit={() => setEsignAction({ type: "submit" })}
-          onExportPng={() => exportDiagramCanvas({ svg: svgRef.current, layout, asPdf: false, showToast })}
-          onExportPdf={() => exportDiagramCanvas({ svg: svgRef.current, layout, asPdf: true, showToast })}
+          onExportPng={() => exportDiagramCanvas({ svg: svgRef.current, layout, asPdf: false, name: name || "ProcessDraw_Diagram", watermark: exportWatermark, showToast })}
+          onExportPdf={() => exportDiagramCanvas({ svg: svgRef.current, layout, asPdf: true, name: name || "ProcessDraw_Diagram", watermark: exportWatermark, showToast })}
         />
 
         <WorkflowCanvasArea
@@ -239,7 +326,7 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
           zoom={zoom}
           setZoom={setZoom}
           onEditBlock={(blockId) => setModal({ type: "edit", blockId })}
-          onDeleteBlock={deleteBlock}
+          onDeleteBlock={confirmDeleteBlock}
           onAddBlock={() => setModal({ type: "new" })}
           onFinalize={() => { setFinalized(true); showToast("Diagram finalized. Submit will save this final version."); }}
           onPickSide={(blockId, side) => setPicker({ blockId, side })}
@@ -251,11 +338,12 @@ export default function WorkflowSafeProcessDraw({ cloud }: { cloud?: any }) {
 
       {esignAction && <ESignModal action={esignAction.type} diagramName={esignAction.diagram?.name || name} userName={cloud?.userName} userEmail={cloud?.userEmail} role={cloud?.role} onCancel={() => setEsignAction(null)} onConfirm={handleESignConfirm} />}
       {historyDiagram?._id && <RevisionHistoryPanel diagramId={historyDiagram._id} diagramName={historyDiagram.name} onClose={() => setHistoryDiagram(null)} />}
-      {modal && modal.type !== "help" && <TextModal title={modalTitle()} initial={modalInitial()} placeholder="e.g. Reactor\nGLR-805" onOk={finishModal} onClose={() => setModal(null)} />}
+      {modal && modal.type !== "help" && <TextModal title={modalTitle()} initial={modalInitial()} placeholder={"e.g. Reactor\nGLR-805"} onOk={finishModal} onClose={() => setModal(null)} />}
       {modal?.type === "help" && <HelpModal onClose={() => setModal(null)} />}
       {picker && <PickerModal title={`Add to ${picker.side} side`} options={SIDE_ITEM_OPTIONS} onPick={(type: string) => { setModal({ type: "side", blockId: picker.blockId, side: picker.side, sideType: type }); setPicker(null); }} onClose={() => setPicker(null)} />}
       {between && <PickerModal title="Add annotation" options={ANNOTATION_SIDE_OPTIONS} onPick={(side: Side) => { setModal({ type: "ann", index: between.index, side }); setBetween(null); }} onClose={() => setBetween(null)} />}
-      {toast && <div className="pd-toast">{toast}</div>}
+      {confirm && <ConfirmModal title={confirm.title} message={confirm.message} confirmLabel={confirm.confirmLabel} onConfirm={confirm.onConfirm} onClose={() => setConfirm(null)} />}
+      {toast && <div className="pd-toast" role="status">{toast}</div>}
     </div>
   );
 }

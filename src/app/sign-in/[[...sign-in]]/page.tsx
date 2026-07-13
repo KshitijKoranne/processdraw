@@ -11,10 +11,6 @@ export default function SignInPage() {
         background: "#f6f3ee",
       }}
     >
-      <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
       <div style={{ textAlign: "center" }}>
         <h1
           style={{

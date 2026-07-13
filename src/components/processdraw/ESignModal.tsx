@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { COLORS } from "./constants";
-import { buttonStyle } from "./ui";
+import { buttonStyle, useEscapeKey } from "./ui";
 
 export type ESignActionType = "submit" | "approve" | "revert" | "reject";
 
@@ -50,6 +50,7 @@ export default function ESignModal({
   onCancel: () => void;
   onConfirm: (remarks: string) => Promise<void> | void;
 }) {
+  useEscapeKey(onCancel);
   const copy = ACTION_COPY[action];
   const [remarks, setRemarks] = useState("");
   const [confirmed, setConfirmed] = useState(false);

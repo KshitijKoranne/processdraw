@@ -1,4 +1,4 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { logAction } from "./auditLog";
 
@@ -136,9 +136,14 @@ export const toggleDisabled = mutation({
   },
 });
 
-export const preRegister = internalMutation({
+export const preRegister = mutation({
   args: { clerkId: v.string(), name: v.string(), employeeCode: v.string(), role: v.string(), isDemo: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const currentUser = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject)).unique();
+    if (!currentUser || currentUser.role !== "it_admin" || currentUser.disabled) throw new Error("Only active IT Admins can create employees");
+    if (currentUser.isDemo) throw new Error("Demo admins cannot create employees");
     const existing = await ctx.db.query("users").withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId)).unique();
     if (existing) return existing._id;
     const validRoles = ["it_admin", "user", "approver", "viewer"];
@@ -154,9 +159,9 @@ export const preRegister = internalMutation({
     });
     await logAction(ctx, {
       action: "employee_created",
-      actorId: args.clerkId,
-      actorName: args.name,
-      actorEmail: args.employeeCode,
+      actorId: currentUser.clerkId,
+      actorName: currentUser.name,
+      actorEmail: currentUser.email,
       targetType: "user",
       targetId: args.clerkId,
       targetName: args.name,

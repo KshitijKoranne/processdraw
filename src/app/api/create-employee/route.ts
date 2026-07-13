@@ -1,20 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient, auth } from "@clerk/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
 
-// We'll call Convex HTTP API directly instead of using the client SDK
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || "";
+const VALID_ROLES = ["it_admin", "user", "approver", "viewer"];
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify the requester is authenticated
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+    if (!CONVEX_URL) {
+      return NextResponse.json({ error: "Server is not configured (missing Convex URL)" }, { status: 500 });
+    }
 
-    // Parse request body
+    // Act on Convex as the calling user so role checks happen server-side.
+    const token = await getToken({ template: "convex" });
+    if (!token) {
+      return NextResponse.json({ error: "Could not verify your session" }, { status: 401 });
+    }
+    const convex = new ConvexHttpClient(CONVEX_URL);
+    convex.setAuth(token);
+
+    const currentUser = await convex.query(api.users.getCurrentUser, {});
+    if (!currentUser || currentUser.role !== "it_admin" || currentUser.disabled) {
+      return NextResponse.json({ error: "Only IT Admins can create employees" }, { status: 403 });
+    }
+    if (currentUser.isDemo) {
+      return NextResponse.json({ error: "Demo admins cannot create employees" }, { status: 403 });
+    }
+
     const body = await req.json();
-    const { employeeCode, password, fullName, role } = body;
+    const employeeCode = String(body.employeeCode || "").trim();
+    const fullName = String(body.fullName || "").trim();
+    const password = String(body.password || "");
+    const role = body.role || "user";
 
     if (!employeeCode || !password || !fullName) {
       return NextResponse.json(
@@ -22,20 +44,16 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
     if (password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
         { status: 400 }
       );
     }
-
-    const validRoles = ["it_admin", "user", "approver", "viewer"];
-    if (role && !validRoles.includes(role)) {
+    if (!VALID_ROLES.includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Create the user in Clerk
     const client = await clerkClient();
     const newUser = await client.users.createUser({
       username: employeeCode,
@@ -44,40 +62,41 @@ export async function POST(req: NextRequest) {
       lastName: fullName.split(" ").slice(1).join(" ") || "",
     });
 
-    // Pre-register in Convex with correct name and role
     try {
-      await fetch(`${CONVEX_URL}/api/mutation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "users:preRegister",
-          args: {
-            clerkId: newUser.id,
-            name: fullName,
-            employeeCode: employeeCode,
-            role: role || "user",
-          },
-        }),
+      await convex.mutation(api.users.preRegister, {
+        clerkId: newUser.id,
+        name: fullName,
+        employeeCode,
+        role,
       });
-    } catch (convexErr) {
+    } catch (convexErr: any) {
+      // Roll back the Clerk account so we never leave a half-provisioned user.
       console.error("Convex pre-register failed:", convexErr);
+      try {
+        await client.users.deleteUser(newUser.id);
+      } catch (rollbackErr) {
+        console.error("Failed to roll back Clerk user:", rollbackErr);
+      }
+      return NextResponse.json(
+        { error: convexErr?.message || "Failed to register employee record" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       userId: newUser.id,
       username: employeeCode,
-      message: `Employee ${employeeCode} (${fullName}) created as ${role || "user"}`,
+      message: `Employee ${employeeCode} (${fullName}) created as ${role}`,
     });
   } catch (error: any) {
     console.error("Create employee error:", error);
 
-    // Handle Clerk-specific errors
     if (error?.errors) {
       const clerkError = error.errors[0];
-      if (clerkError?.code === "form_identifier_exists") {
+      if (clerkError?.code === "form_identifier_exists" || clerkError?.code === "form_username_exists") {
         return NextResponse.json(
-          { error: `Employee code "${error.errors[0]?.meta?.paramName || ""}" already exists` },
+          { error: "That employee code is already in use" },
           { status: 409 }
         );
       }

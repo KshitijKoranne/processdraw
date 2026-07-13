@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import { DiagramCanvas } from "./DiagramCanvas";
+import { STATUS_LABELS } from "./constants";
 import { buttonStyle } from "./ui";
 import type { ArrowAnnotations, Block, Side } from "./types";
 
@@ -51,11 +52,17 @@ export default function WorkflowCanvasArea({
   onOpenSaved: () => void;
 }) {
   if (!blocks.length) {
+    const heading = isCloud && role === "approver" ? "Review diagrams" : isCloud && role === "viewer" ? "View approved diagrams" : "Build a process flow";
+    const sub = isCloud && role === "approver"
+      ? "Open a submitted diagram from the sidebar to review, approve, revert, or reject it."
+      : isCloud && role === "viewer"
+        ? "Open an approved diagram from the sidebar. Viewers have read-only access."
+        : "Create print-ready process flow diagrams with clean GMP-style layout.";
     return (
       <div className="pd-empty">
-        <h2>{isCloud && role === "approver" ? "Review diagrams" : "Build a process flow"}</h2>
-        <p>Create print-ready process flow diagrams with clean GMP-style layout.</p>
-        {canEdit && <button className="pd-plus" onClick={onAddBlock}>+</button>}
+        <h2>{heading}</h2>
+        <p>{sub}</p>
+        {canEdit && <button className="pd-plus" aria-label="Add first process step" onClick={onAddBlock}>+</button>}
         <button style={buttonStyle("primary")} onClick={onOpenSaved}>Saved diagrams</button>
       </div>
     );
@@ -64,11 +71,14 @@ export default function WorkflowCanvasArea({
   return (
     <>
       <div className="pd-bar">
-        <span>{name || "Untitled diagram"} · {blocks.length} steps · {layout.pages} A4 page{layout.pages > 1 ? "s" : ""} · {status.toUpperCase()} · {finalized ? "FINALIZED" : "DRAFT"}</span>
         <span>
-          <button style={buttonStyle()} onClick={() => setZoom((value) => Math.max(.55, +(value - .1).toFixed(2)))}>−</button>{" "}
-          <button style={buttonStyle()} onClick={() => setZoom(() => 1)}>{Math.round(zoom * 100)}%</button>{" "}
-          <button style={buttonStyle()} onClick={() => setZoom((value) => Math.min(1.6, +(value + .1).toFixed(2)))}>+</button>
+          {name || "Untitled diagram"} · {blocks.length} step{blocks.length > 1 ? "s" : ""} · {layout.pages} A4 page{layout.pages > 1 ? "s" : ""} · {(STATUS_LABELS[status] || status).toUpperCase()}
+          {status === "draft" && finalized ? " · FINALIZED (ready to submit)" : ""}
+        </span>
+        <span>
+          <button style={buttonStyle()} aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(.55, +(value - .1).toFixed(2)))}>−</button>{" "}
+          <button style={buttonStyle()} aria-label="Reset zoom" onClick={() => setZoom(() => 1)}>{Math.round(zoom * 100)}%</button>{" "}
+          <button style={buttonStyle()} aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.6, +(value + .1).toFixed(2)))}>+</button>
         </span>
       </div>
       <div className="pd-canvas">
@@ -78,6 +88,7 @@ export default function WorkflowCanvasArea({
             layout={layout}
             blocks={blocks}
             annotations={annotations}
+            title={name || "Untitled diagram"}
             readOnly={readOnly}
             onEditBlock={onEditBlock}
             onDeleteBlock={onDeleteBlock}

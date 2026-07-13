@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { COLORS } from "./constants";
-import { buttonStyle } from "./ui";
+import { buttonStyle, useEscapeKey } from "./ui";
 
 function formatDate(value?: number) {
   if (!value) return "—";
@@ -28,6 +28,7 @@ function Remark({ label, value }: { label: string; value?: string }) {
 }
 
 export default function RevisionHistoryPanel({ diagramId, diagramName, onClose }: { diagramId: string; diagramName?: string; onClose: () => void }) {
+  useEscapeKey(onClose);
   const versions = useQuery(api.diagrams.listVersions, { diagramId: diagramId as any });
   const sorted = [...(versions || [])].sort((a: any, b: any) => b.revisionNumber - a.revisionNumber);
 

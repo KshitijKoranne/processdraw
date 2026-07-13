@@ -13,7 +13,7 @@ const AppContent = dynamic(() => import("@/components/AppContent"), {
         justifyContent: "center",
         height: "100vh",
         background: "#f6f3ee",
-        fontFamily: "'Playfair Display', Georgia, serif",
+        fontFamily: "'Fraunces', Georgia, serif",
       }}
     >
       <div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824" }}>

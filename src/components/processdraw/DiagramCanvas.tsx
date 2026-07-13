@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { A4_PAGE_HEIGHT, ARROW_SIZE, CANVAS_CENTER_X, COLORS, SIDE_GAP, SVG_WIDTH } from "./constants";
+import { A4_PAGE_HEIGHT, ARROW_SIZE, CANVAS_CENTER_X, COLORS, PAGE_FOOTER_HEIGHT, SIDE_GAP, SVG_WIDTH } from "./constants";
 import { sideDimensions } from "./geometry";
 import type { ArrowAnnotations, Block, Side } from "./types";
 
@@ -16,10 +16,27 @@ function Delete({ x, y, onClick }: any) {
   return <g className="pd-del" onClick={onClick}><circle cx={x} cy={y} r={8} fill={COLORS.danger} /><text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle" fontFamily={CHART_FONT} fontSize={CHART_FONT_SIZE} fill="#fff">×</text><circle cx={x} cy={y} r={16} fill="transparent" /></g>;
 }
 
-export function DiagramCanvas({ svgRef, layout, blocks, annotations, readOnly, onEditBlock, onDeleteBlock, onAddBlock, onFinalize, onPickSide, onPickBetween, onToggleSideArrow }: {
+function PageFooter({ page, pages, title }: { page: number; pages: number; title: string }) {
+  const bandTop = (page + 1) * A4_PAGE_HEIGHT - PAGE_FOOTER_HEIGHT;
+  const lineY = bandTop + 34;
+  return (
+    <g fontFamily={CHART_FONT} fontSize={11} fill={COLORS.ink}>
+      <line x1={42} x2={SVG_WIDTH - 42} y1={bandTop + 8} y2={bandTop + 8} stroke={COLORS.ink} strokeWidth={0.75} />
+      <text x={42} y={lineY}>Prepared by (Sign &amp; Date):</text>
+      <line x1={182} x2={352} y1={lineY + 3} y2={lineY + 3} stroke={COLORS.ink} strokeWidth={0.75} />
+      <text x={410} y={lineY}>Checked by (Sign &amp; Date):</text>
+      <line x1={545} x2={715} y1={lineY + 3} y2={lineY + 3} stroke={COLORS.ink} strokeWidth={0.75} />
+      <text x={42} y={bandTop + 54} fontSize={10} fill={COLORS.muted}>{title}</text>
+      <text x={SVG_WIDTH - 42} y={bandTop + 54} fontSize={10} fill={COLORS.muted} textAnchor="end">Page {page + 1} of {pages}</text>
+    </g>
+  );
+}
+
+export function DiagramCanvas({ svgRef, layout, blocks, annotations, readOnly, title, onEditBlock, onDeleteBlock, onAddBlock, onFinalize, onPickSide, onPickBetween, onToggleSideArrow }: {
   svgRef: RefObject<SVGSVGElement | null>;
   layout: any;
   blocks: Block[];
+  title: string;
   annotations: ArrowAnnotations;
   readOnly: boolean;
   onEditBlock: (blockId: string) => void;
@@ -34,7 +51,10 @@ export function DiagramCanvas({ svgRef, layout, blocks, annotations, readOnly, o
   const output: any[] = [];
 
   for (let page = 1; page < layout.pages; page++) {
-    output.push(<g key={`page-${page}`}><line x1={42} x2={SVG_WIDTH - 42} y1={page * A4_PAGE_HEIGHT} y2={page * A4_PAGE_HEIGHT} stroke={COLORS.border} strokeDasharray="7 5" /><text x={SVG_WIDTH / 2} y={page * A4_PAGE_HEIGHT - 10} textAnchor="middle" fontFamily={CHART_FONT} fontSize={CHART_FONT_SIZE} fill={COLORS.light}>A4 page break</text></g>);
+    output.push(<g key={`page-${page}`}><line x1={0} x2={SVG_WIDTH} y1={page * A4_PAGE_HEIGHT} y2={page * A4_PAGE_HEIGHT} stroke={COLORS.border} strokeDasharray="7 5" /></g>);
+  }
+  for (let page = 0; page < layout.pages; page++) {
+    output.push(<PageFooter key={`footer-${page}`} page={page} pages={layout.pages} title={title} />);
   }
 
   layout.positions.forEach((pos: any, index: number) => {
@@ -46,8 +66,24 @@ export function DiagramCanvas({ svgRef, layout, blocks, annotations, readOnly, o
       const next = layout.positions[index + 1];
       const y1 = pos.blockY + pos.height;
       const y2 = next.blockY;
-      const mid = (y1 + y2) / 2;
-      output.push(<g key={`arrow-${index}`}><line x1={CANVAS_CENTER_X} x2={CANVAS_CENTER_X} y1={y1} y2={y2} stroke={COLORS.ink} /><polygon points={`${CANVAS_CENTER_X},${y2} ${CANVAS_CENTER_X - 4},${y2 - ARROW_SIZE} ${CANVAS_CENTER_X + 4},${y2 - ARROW_SIZE}`} fill={COLORS.ink} /></g>);
+      const crossesPage = Math.floor(y1 / A4_PAGE_HEIGHT) !== Math.floor(y2 / A4_PAGE_HEIGHT);
+      const pageEnd = (Math.floor(y1 / A4_PAGE_HEIGHT) + 1) * A4_PAGE_HEIGHT;
+      const stopY = pageEnd - PAGE_FOOTER_HEIGHT - 10;
+      // Anchor annotations and controls to the visible segment on the first page.
+      const mid = crossesPage ? (y1 + stopY) / 2 : (y1 + y2) / 2;
+      if (crossesPage) {
+        // Break the connector around the footer band and page boundary.
+        const resumeY = pageEnd + 12;
+        output.push(<g key={`arrow-${index}`}>
+          <line x1={CANVAS_CENTER_X} x2={CANVAS_CENTER_X} y1={y1} y2={stopY} stroke={COLORS.ink} />
+          <polygon points={`${CANVAS_CENTER_X},${stopY} ${CANVAS_CENTER_X - 4},${stopY - ARROW_SIZE} ${CANVAS_CENTER_X + 4},${stopY - ARROW_SIZE}`} fill={COLORS.ink} />
+          <text x={CANVAS_CENTER_X + 10} y={stopY - 2} fontFamily={CHART_FONT} fontSize={10} fontStyle="italic" fill={COLORS.muted}>contd.</text>
+          <line x1={CANVAS_CENTER_X} x2={CANVAS_CENTER_X} y1={resumeY} y2={y2} stroke={COLORS.ink} />
+          <polygon points={`${CANVAS_CENTER_X},${y2} ${CANVAS_CENTER_X - 4},${y2 - ARROW_SIZE} ${CANVAS_CENTER_X + 4},${y2 - ARROW_SIZE}`} fill={COLORS.ink} />
+        </g>);
+      } else {
+        output.push(<g key={`arrow-${index}`}><line x1={CANVAS_CENTER_X} x2={CANVAS_CENTER_X} y1={y1} y2={y2} stroke={COLORS.ink} /><polygon points={`${CANVAS_CENTER_X},${y2} ${CANVAS_CENTER_X - 4},${y2 - ARROW_SIZE} ${CANVAS_CENTER_X + 4},${y2 - ARROW_SIZE}`} fill={COLORS.ink} /></g>);
+      }
       const ann = annotations[index] || { left: [], right: [] };
       (["left", "right"] as Side[]).forEach((side) => (ann[side] || []).forEach((item: any, annIndex: number) => {
         const dimensions = sideDimensions(item.text);

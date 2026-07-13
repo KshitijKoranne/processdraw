@@ -1,4 +1,4 @@
-import { A4_PAGE_HEIGHT, CANVAS_CENTER_X, SIDE_GAP, VERTICAL_GAP } from "./constants";
+import { A4_PAGE_HEIGHT, CANVAS_CENTER_X, PAGE_FOOTER_HEIGHT, SIDE_GAP, VERTICAL_GAP } from "./constants";
 import type { ArrowAnnotations, Block, Side, SideItem } from "./types";
 
 export function wrapText(text = "", max = 24) {
@@ -55,8 +55,11 @@ export function buildDiagramLayout(blocks: Block[], annotations: ArrowAnnotation
       sideStackHeight(block.rightItems) + 28,
     );
 
-    if (Math.floor((y + height + 34) / A4_PAGE_HEIGHT) > Math.floor(y / A4_PAGE_HEIGHT) && y > 34) {
-      y = (Math.floor(y / A4_PAGE_HEIGHT) + 1) * A4_PAGE_HEIGHT + 34;
+    // Keep every block above the reserved signature-footer band of its page.
+    const pageIndex = Math.floor(y / A4_PAGE_HEIGHT);
+    const contentBottom = (pageIndex + 1) * A4_PAGE_HEIGHT - PAGE_FOOTER_HEIGHT;
+    if (y + height + 34 > contentBottom && y > 34) {
+      y = (pageIndex + 1) * A4_PAGE_HEIGHT + 34;
     }
 
     const blockX = CANVAS_CENTER_X - main.width / 2;
@@ -95,10 +98,12 @@ export function buildDiagramLayout(blocks: Block[], annotations: ArrowAnnotation
     y += height + VERTICAL_GAP + (annotation ? Math.max(annotation.left?.length || 0, annotation.right?.length || 0) * 8 : 0);
   });
 
-  const height = Math.max(A4_PAGE_HEIGHT, y + 52);
+  const lastBottom = positions.reduce((max, pos) => Math.max(max, pos.blockY + pos.height), 0);
+  const pages = Math.max(1, Math.floor(lastBottom / A4_PAGE_HEIGHT) + 1);
   return {
     positions,
-    height,
-    pages: Math.max(1, Math.ceil(height / A4_PAGE_HEIGHT)),
+    // Snap the canvas to whole A4 pages so the footer band sits at each page bottom.
+    height: pages * A4_PAGE_HEIGHT,
+    pages,
   };
 }
