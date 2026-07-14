@@ -4,9 +4,12 @@
   "description": "Process flow diagram builder for Pharma API manufacturing — by KJR Labs",
   "main": "index.js",
   "scripts": {
+    "predev": "node scripts/migrate.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/migrate.mjs",
     "build": "next build",
     "start": "next start",
+    "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },

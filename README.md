@@ -34,23 +34,19 @@ AUTH_SECRET=any-long-random-string
 
 Generate a strong `AUTH_SECRET` with `openssl rand -base64 33` (or `npx auth secret`).
 
-### 4. Create the database tables
-
-```bash
-npm run db:push
-```
-
-This creates all tables in your Neon database from the Drizzle schema
-(`src/db/schema.ts`). Re-run it whenever the schema changes.
-`npm run db:studio` opens a local browser UI to inspect your data.
-
-### 5. Run locally
+### 4. Run locally
 
 ```bash
 npm run dev
 ```
 
-### 6. First-run setup
+Database tables are created automatically the first time you run this —
+`npm run dev` and `npm run build` both apply any pending migrations from
+`./drizzle` against `DATABASE_URL` before starting. Nothing to run by hand.
+
+`npm run db:studio` opens a local browser UI to inspect your data.
+
+### 5. First-run setup
 
 Open the app and click **Sign In**. On a fresh database the sign-in page
 becomes a one-time setup form that creates the first account as **IT Admin**.
@@ -58,13 +54,24 @@ After that, the admin creates all further accounts from the Admin Panel
 (employees sign in with their employee code; they must set their own
 password at first login).
 
-### 7. Deploy to Vercel
+### 6. Deploy to Vercel
 
 1. Push to GitHub
 2. Connect repo on [vercel.com](https://vercel.com)
-3. Add all env vars from `.env.local` to Vercel project settings
+3. Add `DATABASE_URL` and `AUTH_SECRET` to Vercel project settings
    (plus `CRON_SECRET` if you use demo accounts — see `vercel.json`)
-4. Deploy — no separate backend deploy step needed
+4. Deploy. Every build runs the pending database migrations automatically
+   (`prebuild` in `package.json`) before building the app — the very first
+   deploy creates all tables, later deploys apply only what changed. No
+   separate backend deploy step, no manual `db:push`.
+
+### Changing the schema later
+
+Edit `src/db/schema.ts`, then run `npm run db:generate` locally to create
+a new migration file and commit it. The next `npm run dev`, `npm run build`,
+or Vercel deploy applies it automatically. (`npm run db:push` still exists
+for quick, throwaway local prototyping, but committed migrations are what
+actually ships to production.)
 
 ## Roles
 
