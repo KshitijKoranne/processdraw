@@ -14,7 +14,7 @@ export async function GET() {
 
     let where;
     if (user.role === "it_admin") where = demoScope;
-    else if (user.role === "user") where = and(demoScope, eq(schema.diagrams.ownerId, user.clerkId));
+    else if (user.role === "user") where = and(demoScope, eq(schema.diagrams.ownerId, user.id));
     else if (user.role === "approver") where = and(demoScope, inArray(schema.diagrams.status, ["submitted", "approved", "rejected"]));
     else if (user.role === "viewer") where = and(demoScope, eq(schema.diagrams.status, "approved"));
     else return NextResponse.json([]);
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const inserted = await db.insert(schema.diagrams).values({
       id: newId(),
       name,
-      ownerId: user.clerkId,
+      ownerId: user.id,
       ownerName: user.name,
       blocks: Array.isArray(body.blocks) ? body.blocks : [],
       arrowAnnotations: body.arrowAnnotations && typeof body.arrowAnnotations === "object" ? body.arrowAnnotations : {},
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     await logAction({
       action: "diagram_created",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",

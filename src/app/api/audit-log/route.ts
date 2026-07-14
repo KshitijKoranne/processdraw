@@ -13,7 +13,7 @@ function parseDetails(raw?: string | null) {
 function sameDemoScope(user: DbUser, log: { actorId: string; details: string | null }) {
   const details = parseDetails(log.details);
   if (details.isDemo !== undefined) return !!details.isDemo === user.isDemo;
-  if (user.isDemo) return log.actorId === user.clerkId;
+  if (user.isDemo) return log.actorId === user.id;
   return true;
 }
 

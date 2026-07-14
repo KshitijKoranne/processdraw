@@ -10,7 +10,7 @@ export async function GET() {
     if (user.role !== "it_admin") throw new ApiError("Only IT Admins can list users", 403);
     const db = getDb();
     const rows = await db.select().from(schema.users);
-    return NextResponse.json(rows);
+    return NextResponse.json(rows.map(({ passwordHash, ...safe }) => safe));
   } catch (error) {
     return handleError(error);
   }

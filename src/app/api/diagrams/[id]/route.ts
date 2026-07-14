@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (user.role !== "user") throw new ApiError("Only users can edit diagrams", 403);
     const diagram = await getDiagramOrThrow(id);
     assertSameDemoScope(user, diagram);
-    if (diagram.ownerId !== user.clerkId) throw new ApiError("Can only edit your own diagrams", 403);
+    if (diagram.ownerId !== user.id) throw new ApiError("Can only edit your own diagrams", 403);
     if (diagram.status !== "draft") throw new ApiError("Only draft diagrams can be edited");
 
     const body = await req.json();
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     await logAction({
       action: "diagram_updated",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",
@@ -56,7 +56,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (user.role !== "user") throw new ApiError("Only users can delete diagrams", 403);
     const diagram = await getDiagramOrThrow(id);
     assertSameDemoScope(user, diagram);
-    if (diagram.ownerId !== user.clerkId) throw new ApiError("Can only delete your own diagrams", 403);
+    if (diagram.ownerId !== user.id) throw new ApiError("Can only delete your own diagrams", 403);
     if (diagram.status !== "draft") throw new ApiError("Only draft diagrams can be deleted");
 
     const db = getDb();
@@ -64,7 +64,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
     await logAction({
       action: "diagram_deleted",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",

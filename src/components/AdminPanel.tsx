@@ -1,9 +1,9 @@
 "use client";
 
 import useSWR from "swr";
-import { UserButton } from "@clerk/nextjs";
 import { useState } from "react";
 import { fetcher, apiCall } from "@/lib/api";
+import AccountMenu from "./AccountMenu";
 
 const HEADING = "'Fraunces', 'Georgia', serif";
 const BODY = "'Outfit', 'Helvetica Neue', sans-serif";
@@ -26,6 +26,10 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   diagram_reverted: { label: "Reverted", color: "#d4a040" },
   diagram_rejected: { label: "Rejected", color: "#c47a6a" },
   employee_created: { label: "Employee Created", color: "#3d8b8b" },
+  user_disabled: { label: "User Disabled", color: "#c47a6a" },
+  user_enabled: { label: "User Enabled", color: "#5a9e7a" },
+  password_changed: { label: "Password Changed", color: "#6a8ab5" },
+  password_reset: { label: "Password Reset", color: "#d4a040" },
 };
 const btnS = (bg: string, color: string, border?: string): any => ({ background: bg, color, border: border || "none", borderRadius: 8, padding: "8px 20px", fontSize: 13, cursor: "pointer", fontFamily: BODY, fontWeight: 500 });
 const inputS: any = { width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 8, padding: "10px 14px", fontSize: 14, fontFamily: BODY, outline: "none", boxSizing: "border-box" };
@@ -88,18 +92,33 @@ function CreateEmployeeForm({ onSuccess }: { onSuccess: (msg: string) => void })
 }
 
 export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => void; isFullScreen?: boolean }) {
+  const { data: me } = useSWR("/api/me", fetcher, { revalidateOnFocus: false });
   const { data: usersData, mutate: mutateUsers } = useSWR("/api/users", fetcher);
-  const { data: auditData } = useSWR("/api/audit-log?limit=200", fetcher, { refreshInterval: 60000 });
+  const { data: auditData, mutate: mutateAudit } = useSWR("/api/audit-log?limit=200", fetcher, { refreshInterval: 60000 });
   const users = usersData || [];
   const auditLogs = auditData || [];
   const [updating, setUpdating] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "create" | "audit">("users");
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetPw, setResetPw] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
   const showError = (message: string) => { setToast(message); setTimeout(() => setToast(null), 4000); };
   const handleRoleChange = async (userId: string, role: string) => { setUpdating(userId); try { await apiCall(`/api/users/${userId}`, "PATCH", { role }); await mutateUsers(); } catch (e: any) { showError(e?.message || "Role change failed"); } setUpdating(null); };
+  const handleResetPassword = async () => {
+    if (!resetTarget) return;
+    if (resetPw.length < 8) return showError("Temporary password must be at least 8 characters");
+    setUpdating(resetTarget.id);
+    try {
+      await apiCall(`/api/users/${resetTarget.id}`, "PATCH", { password: resetPw });
+      setToast(`Password reset for ${resetTarget.name}. They must choose a new one at next sign-in.`);
+      setTimeout(() => setToast(null), 4000);
+      setResetTarget(null); setResetPw("");
+    } catch (e: any) { showError(e?.message || "Password reset failed"); }
+    setUpdating(null);
+  };
   const handleToggleDisabled = async (userId: string, disabled: boolean) => { setUpdating(userId); try { await apiCall(`/api/users/${userId}`, "PATCH", { disabled }); await mutateUsers(); } catch (e: any) { showError(e?.message || "Update failed"); } setUpdating(null); };
-  const tabBtn = (id: string, label: string) => <button onClick={() => setTab(id as any)} style={{ background: tab === id ? C.accent : "none", color: tab === id ? "#fff" : C.textMuted, border: tab === id ? "none" : `1px solid ${C.border}`, borderRadius: 6, padding: "6px 16px", fontSize: 13, cursor: "pointer", fontFamily: BODY, fontWeight: 500 }}>{label}</button>;
+  const tabBtn = (id: string, label: string) => <button onClick={() => { setTab(id as any); if (id === "audit") void mutateAudit(); if (id === "users") void mutateUsers(); }} style={{ background: tab === id ? C.accent : "none", color: tab === id ? "#fff" : C.textMuted, border: tab === id ? "none" : `1px solid ${C.border}`, borderRadius: 6, padding: "6px 16px", fontSize: 13, cursor: "pointer", fontFamily: BODY, fontWeight: 500 }}>{label}</button>;
 
   return (
     <div style={{ height: "100vh", background: C.bg, fontFamily: BODY, display: "flex", flexDirection: "column" }}>
@@ -108,13 +127,26 @@ export default function AdminPanel({ onBack, isFullScreen }: { onBack: () => voi
         {!isFullScreen && <button onClick={onBack} style={{ ...btnS(C.surfaceAlt, C.textMuted, `1px solid ${C.border}`), padding: "6px 14px", fontSize: 12 }}>← Back</button>}
         {isFullScreen && <span style={{ fontSize: 18, fontWeight: 700, fontFamily: HEADING, color: C.text }}>ProcessDraw</span>}
         <span style={{ fontSize: isFullScreen ? 14 : 20, fontWeight: isFullScreen ? 500 : 700, fontFamily: HEADING, color: isFullScreen ? C.textMuted : C.text }}>{isFullScreen ? "— Administration" : "Administration"}</span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>{tabBtn("create", "Create Employee")}{tabBtn("users", "Users")}{tabBtn("audit", "Audit Log")}{isFullScreen && <div style={{ marginLeft: 8 }}><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div>}</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>{tabBtn("create", "Create Employee")}{tabBtn("users", "Users")}{tabBtn("audit", "Audit Log")}{isFullScreen && <div style={{ marginLeft: 8 }}><AccountMenu name={me?.name} email={me?.email} role={me?.role} /></div>}</div>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "24px 32px", maxWidth: 960, margin: "0 auto", width: "100%" }}>
-        {tab === "create" && <CreateEmployeeForm onSuccess={(msg) => { setToast(msg); setTimeout(() => setToast(null), 4000); setTab("users"); }} />}
-        {tab === "users" && <><div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}><strong>IT Admin:</strong> Full access &nbsp;·&nbsp; <strong>User:</strong> Create/edit own diagrams &nbsp;·&nbsp; <strong>Approver:</strong> Review & approve &nbsp;·&nbsp; <strong>Viewer:</strong> Read-only</div>{users.map((user: any) => <div key={user.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", marginBottom: 6, borderRadius: 10, background: user.disabled ? "#fdf5f3" : C.surface, border: `1px solid ${user.disabled ? "#e8c4bc" : C.border}`, opacity: user.disabled ? 0.7 : 1 }}><div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user.name}</span>{user.disabled && <span style={{ fontSize: 9, color: "#fff", background: C.danger, padding: "1px 6px", borderRadius: 8, fontWeight: 600, textTransform: "uppercase" as any }}>Disabled</span>}</div><div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Employee Code: {user.email || "—"}</div></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select value={user.role} onChange={(e) => handleRoleChange(user.id, e.target.value)} disabled={updating === user.id || user.disabled} style={{ background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 12px", fontSize: 13, fontFamily: BODY, cursor: updating === user.id ? "wait" : "pointer", outline: "none" }}>{ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}</select><button onClick={() => handleToggleDisabled(user.id, !user.disabled)} disabled={updating === user.id} style={{ background: user.disabled ? C.success : C.danger, border: "none", color: "#fff", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: BODY, minWidth: 65 }}>{user.disabled ? "Enable" : "Disable"}</button></div></div>)}{users.length === 0 && <div style={{ textAlign: "center", padding: 40, color: C.textLight }}>Loading users...</div>}</>}
+        {tab === "create" && <CreateEmployeeForm onSuccess={(msg) => { setToast(msg); setTimeout(() => setToast(null), 4000); void mutateUsers(); void mutateAudit(); setTab("users"); }} />}
+        {tab === "users" && <><div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.6 }}><strong>IT Admin:</strong> Full access &nbsp;·&nbsp; <strong>User:</strong> Create/edit own diagrams &nbsp;·&nbsp; <strong>Approver:</strong> Review & approve &nbsp;·&nbsp; <strong>Viewer:</strong> Read-only</div>{users.map((user: any) => <div key={user.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", marginBottom: 6, borderRadius: 10, background: user.disabled ? "#fdf5f3" : C.surface, border: `1px solid ${user.disabled ? "#e8c4bc" : C.border}`, opacity: user.disabled ? 0.7 : 1 }}><div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user.name}</span>{user.disabled && <span style={{ fontSize: 9, color: "#fff", background: C.danger, padding: "1px 6px", borderRadius: 8, fontWeight: 600, textTransform: "uppercase" as any }}>Disabled</span>}</div><div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Employee Code: {user.email || "—"}</div></div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><select value={user.role} onChange={(e) => handleRoleChange(user.id, e.target.value)} disabled={updating === user.id || user.disabled} style={{ background: C.surfaceAlt, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "6px 12px", fontSize: 13, fontFamily: BODY, cursor: updating === user.id ? "wait" : "pointer", outline: "none" }}>{ROLES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}</select><button onClick={() => { setResetTarget({ id: user.id, name: user.name }); setResetPw(""); }} disabled={updating === user.id} style={{ background: "none", border: `1px solid ${C.border}`, color: C.textMuted, borderRadius: 6, padding: "6px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: BODY }}>Reset PW</button><button onClick={() => handleToggleDisabled(user.id, !user.disabled)} disabled={updating === user.id} style={{ background: user.disabled ? C.success : C.danger, border: "none", color: "#fff", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: BODY, minWidth: 65 }}>{user.disabled ? "Enable" : "Disable"}</button></div></div>)}{users.length === 0 && <div style={{ textAlign: "center", padding: 40, color: C.textLight }}>Loading users...</div>}</>}
         {tab === "audit" && <><div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>Showing last {auditLogs.length} actions. All entries are immutable.</div><div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: BODY }}><thead><tr style={{ background: C.surfaceAlt, borderBottom: `1px solid ${C.border}` }}><th style={{ padding: "10px 14px", textAlign: "left", color: C.textMuted, fontWeight: 600 }}>Timestamp</th><th style={{ padding: "10px 14px", textAlign: "left", color: C.textMuted, fontWeight: 600 }}>Action</th><th style={{ padding: "10px 14px", textAlign: "left", color: C.textMuted, fontWeight: 600 }}>Performed By</th><th style={{ padding: "10px 14px", textAlign: "left", color: C.textMuted, fontWeight: 600 }}>Target</th><th style={{ padding: "10px 14px", textAlign: "left", color: C.textMuted, fontWeight: 600 }}>Details / Remarks</th></tr></thead><tbody>{auditLogs.map((log: any, index: number) => { const info = ACTION_LABELS[log.action] || { label: log.action, color: "#888" }; const details = auditDetails(log.details); return <tr key={log.id || index} style={{ borderBottom: `1px solid ${C.border}` }}><td style={{ padding: "8px 14px", color: C.textLight, whiteSpace: "nowrap" }}>{new Date(log.timestamp).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td><td style={{ padding: "8px 14px" }}><span style={{ fontSize: 10, fontWeight: 600, color: "#fff", background: info.color, padding: "2px 8px", borderRadius: 8, textTransform: "uppercase" }}>{info.label}</span></td><td style={{ padding: "8px 14px", color: C.text }}><div>{log.actorName}</div><div style={{ fontSize: 10, color: C.textLight }}>{log.actorEmail}</div></td><td style={{ padding: "8px 14px", color: C.textMuted }}>{log.targetName || "—"}{log.targetType && <span style={{ fontSize: 10, color: C.textLight, marginLeft: 4 }}>({log.targetType})</span>}</td><td style={{ padding: "8px 14px", color: C.textMuted, fontSize: 11, lineHeight: 1.45 }}>{details || "—"}</td></tr>; })}</tbody></table>{auditLogs.length === 0 && <div style={{ textAlign: "center", padding: 32, color: C.textLight }}>No audit entries yet.</div>}</div></>}
       </div>
+      {resetTarget && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44,40,36,.32)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }} onClick={() => setResetTarget(null)}>
+          <div style={{ width: "min(380px, 100%)", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: C.text, fontFamily: HEADING, marginBottom: 6 }}>Reset password</div>
+            <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.5, marginBottom: 14 }}>Set a temporary password for <strong>{resetTarget.name}</strong>. They will be required to choose their own at next sign-in.</div>
+            <input value={resetPw} onChange={(e) => setResetPw(e.target.value)} type="password" placeholder="Temporary password (min 8 characters)" style={inputS} autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleResetPassword(); if (e.key === "Escape") setResetTarget(null); }} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <button onClick={() => setResetTarget(null)} style={btnS("none", C.textMuted, `1px solid ${C.border}`)}>Cancel</button>
+              <button onClick={handleResetPassword} disabled={updating === resetTarget.id} style={btnS(C.accent, "#fff")}>Reset password</button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: C.success, color: "#fff", padding: "10px 24px", borderRadius: 8, fontSize: 13, fontFamily: BODY, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 999 }}>{toast}</div>}
     </div>
   );

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const db = getDb();
   const demoUsers = await db.select().from(schema.users).where(eq(schema.users.isDemo, true));
   if (demoUsers.length === 0) return NextResponse.json({ ok: true, skipped: "no demo users" });
-  const demoUserIds = demoUsers.map((user) => user.clerkId);
+  const demoUserIds = demoUsers.map((user) => user.id);
 
   // Wipe demo diagrams (and their versions), notifications, and audit entries.
   const demoDiagrams = await db.select({ id: schema.diagrams.id }).from(schema.diagrams).where(eq(schema.diagrams.isDemo, true));
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   await db.insert(schema.diagrams).values({
     id: newId(),
     name: "Sample: Ibuprofen Synthesis",
-    ownerId: demoUser.clerkId,
+    ownerId: demoUser.id,
     ownerName: demoUser.name,
     blocks: SAMPLE_DRAFT_BLOCKS,
     arrowAnnotations: { 2: { left: [{ id: "a1", text: "Wet Cake" }], right: [] } },
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     await db.insert(schema.diagrams).values({
       id: approvedId,
       name: "Sample: Paracetamol Granulation",
-      ownerId: demoUser.clerkId,
+      ownerId: demoUser.id,
       ownerName: demoUser.name,
       blocks: SAMPLE_APPROVED_BLOCKS,
       arrowAnnotations: {},
@@ -84,10 +84,10 @@ export async function GET(req: NextRequest) {
       status: "approved",
       currentRevision: 0,
       finalized: true,
-      finalizedBy: demoUser.clerkId,
+      finalizedBy: demoUser.id,
       finalizedByName: demoUser.name,
       finalizedAt: now - 86000000,
-      approvedBy: demoApprover.clerkId,
+      approvedBy: demoApprover.id,
       approvedByName: demoApprover.name,
       approvedAt: now,
       isDemo: true,
@@ -104,11 +104,11 @@ export async function GET(req: NextRequest) {
       settings: { finalized: true },
       statusAtSnapshot: "approved",
       snapshotType: "approved_snapshot",
-      submittedBy: demoUser.clerkId,
+      submittedBy: demoUser.id,
       submittedByName: demoUser.name,
       submittedAt: now - 86000000,
       submittedRemarks: "Demo submitted for approval.",
-      approvedBy: demoApprover.clerkId,
+      approvedBy: demoApprover.id,
       approvedByName: demoApprover.name,
       approvedAt: now,
       approvalRemarks: "Demo approval completed.",
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
   await db.insert(schema.diagrams).values({
     id: submittedId,
     name: "Sample: Amoxicillin Coating",
-    ownerId: demoUser.clerkId,
+    ownerId: demoUser.id,
     ownerName: demoUser.name,
     blocks: SAMPLE_SUBMITTED_BLOCKS,
     arrowAnnotations: {},
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
     status: "submitted",
     currentRevision: 0,
     finalized: true,
-    finalizedBy: demoUser.clerkId,
+    finalizedBy: demoUser.id,
     finalizedByName: demoUser.name,
     finalizedAt: now - 3600000,
     isDemo: true,
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
     settings: { finalized: true },
     statusAtSnapshot: "submitted",
     snapshotType: "submitted_snapshot",
-    submittedBy: demoUser.clerkId,
+    submittedBy: demoUser.id,
     submittedByName: demoUser.name,
     submittedAt: now - 3600000,
     submittedRemarks: "Demo submission awaiting approver review.",

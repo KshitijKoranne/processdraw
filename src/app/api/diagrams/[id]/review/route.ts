@@ -33,14 +33,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.update(schema.diagramVersions).set({
         statusAtSnapshot: "approved",
         snapshotType: "approved_snapshot",
-        approvedBy: user.clerkId,
+        approvedBy: user.id,
         approvedByName: user.name,
         approvedAt: now,
         approvalRemarks: remarks,
       }).where(eq(schema.diagramVersions.id, version.id));
       await db.update(schema.diagrams).set({
         status: "approved",
-        approvedBy: user.clerkId,
+        approvedBy: user.id,
         approvedByName: user.name,
         approvedAt: now,
         updatedAt: now,
@@ -49,14 +49,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.update(schema.diagramVersions).set({
         statusAtSnapshot: "rejected",
         snapshotType: "rejected_snapshot",
-        rejectedBy: user.clerkId,
+        rejectedBy: user.id,
         rejectedByName: user.name,
         rejectedAt: now,
         rejectionRemarks: remarks,
       }).where(eq(schema.diagramVersions.id, version.id));
       await db.update(schema.diagrams).set({
         status: "rejected",
-        rejectedBy: user.clerkId,
+        rejectedBy: user.id,
         rejectedByName: user.name,
         rejectionComment: remarks,
         rejectedAt: now,
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await logAction({
       action: decision === "approved" ? "diagram_approved" : "diagram_rejected",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",

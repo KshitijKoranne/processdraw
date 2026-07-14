@@ -2,16 +2,18 @@ import { pgTable, text, boolean, integer, bigint, jsonb, index, uniqueIndex } fr
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
-  clerkId: text("clerk_id").notNull(),
+  // Login identifier: the employee code (or email) the user signs in with.
   email: text("email").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   imageUrl: text("image_url"),
   disabled: boolean("disabled").notNull().default(false),
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: bigint("created_at", { mode: "number" }).notNull(),
 }, (table) => [
-  uniqueIndex("users_clerk_id_idx").on(table.clerkId),
+  uniqueIndex("users_email_idx").on(table.email),
   index("users_role_idx").on(table.role),
 ]);
 

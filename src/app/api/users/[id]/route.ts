@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { ApiError, getAuthUser, handleError, logAction } from "@/lib/server/helpers";
@@ -29,26 +30,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await db.update(schema.users).set({ role: body.role }).where(eq(schema.users.id, id));
       await logAction({
         action: "role_changed",
-        actorId: currentUser.clerkId,
+        actorId: currentUser.id,
         actorName: currentUser.name,
         actorEmail: currentUser.email,
         targetType: "user",
-        targetId: target.clerkId,
+        targetId: target.id,
         targetName: target.name,
         details: JSON.stringify({ oldRole, newRole: body.role }),
       });
     }
 
     if (body.disabled !== undefined) {
-      if (target.clerkId === currentUser.clerkId) throw new ApiError("Cannot disable yourself");
+      if (target.id === currentUser.id) throw new ApiError("Cannot disable yourself");
       await db.update(schema.users).set({ disabled: !!body.disabled }).where(eq(schema.users.id, id));
       await logAction({
         action: body.disabled ? "user_disabled" : "user_enabled",
-        actorId: currentUser.clerkId,
+        actorId: currentUser.id,
         actorName: currentUser.name,
         actorEmail: currentUser.email,
         targetType: "user",
-        targetId: target.clerkId,
+        targetId: target.id,
+        targetName: target.name,
+      });
+    }
+
+    // Admin password reset: forces the user to pick a new password at next login.
+    if (body.password !== undefined) {
+      const password = String(body.password || "");
+      if (password.length < 8) throw new ApiError("Password must be at least 8 characters");
+      await db.update(schema.users).set({
+        passwordHash: await bcrypt.hash(password, 12),
+        mustChangePassword: true,
+      }).where(eq(schema.users.id, id));
+      await logAction({
+        action: "password_reset",
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        actorEmail: currentUser.email,
+        targetType: "user",
+        targetId: target.id,
         targetName: target.name,
       });
     }

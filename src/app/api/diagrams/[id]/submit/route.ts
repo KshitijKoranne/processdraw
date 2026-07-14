@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (user.role !== "user") throw new ApiError("Only users can submit diagrams", 403);
     const diagram = await getDiagramOrThrow(id);
     assertSameDemoScope(user, diagram);
-    if (diagram.ownerId !== user.clerkId) throw new ApiError("Can only submit your own diagrams", 403);
+    if (diagram.ownerId !== user.id) throw new ApiError("Can only submit your own diagrams", 403);
     if (diagram.status !== "draft") throw new ApiError("Only draft diagrams can be submitted");
     if (!Array.isArray(diagram.blocks) || diagram.blocks.length === 0) throw new ApiError("Add at least one process step before submitting");
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       settings: finalizedSettings,
       statusAtSnapshot: "submitted",
       snapshotType: "submitted_snapshot",
-      submittedBy: user.clerkId,
+      submittedBy: user.id,
       submittedByName: user.name,
       submittedAt: now,
       submittedRemarks: remarks,
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: "submitted",
       settings: finalizedSettings,
       finalized: true,
-      finalizedBy: user.clerkId,
+      finalizedBy: user.id,
       finalizedByName: user.name,
       finalizedAt: now,
       currentRevision: revisionNumber,
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (approvers.length) {
       await db.insert(schema.notifications).values(approvers.map((approver) => ({
         id: newId(),
-        userId: approver.clerkId,
+        userId: approver.id,
         type: "submitted",
         diagramId: id,
         diagramName: diagram.name,
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await logAction({
       action: "diagram_submitted",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",

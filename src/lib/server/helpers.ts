@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { DbDiagram, DbUser } from "@/db/schema";
@@ -23,14 +23,15 @@ export function handleError(error: unknown) {
 }
 
 /** Load the signed-in user's DB row; throws ApiError if unauthenticated, unknown, or disabled. */
-export async function getAuthUser(): Promise<DbUser> {
-  const { userId } = await auth();
+export async function getAuthUser({ allowDisabled = false } = {}): Promise<DbUser> {
+  const session = await auth();
+  const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) throw new ApiError("Not authenticated", 401);
   const db = getDb();
-  const rows = await db.select().from(schema.users).where(eq(schema.users.clerkId, userId)).limit(1);
+  const rows = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   const user = rows[0];
   if (!user) throw new ApiError("User not found", 404);
-  if (user.disabled) throw new ApiError("Your account has been disabled. Contact your administrator.", 403);
+  if (user.disabled && !allowDisabled) throw new ApiError("Your account has been disabled. Contact your administrator.", 403);
   return user;
 }
 
@@ -44,7 +45,7 @@ export function requiredRemarks(value: unknown, label: string) {
 export function canAccessDiagram(user: DbUser, diagram: DbDiagram) {
   if (user.isDemo !== diagram.isDemo) return false;
   if (user.role === "it_admin") return true;
-  if (user.role === "user") return diagram.ownerId === user.clerkId;
+  if (user.role === "user") return diagram.ownerId === user.id;
   if (user.role === "approver") return ["submitted", "approved", "rejected"].includes(diagram.status);
   if (user.role === "viewer") return diagram.status === "approved";
   return false;

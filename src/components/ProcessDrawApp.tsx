@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo } from "react";
 import useSWR, { useSWRConfig } from "swr";
-import { useUser, useAuth, UserButton, useClerk } from "@clerk/nextjs";
+import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { fetcher, apiCall } from "@/lib/api";
 import ProcessDrawV2 from "./ProcessDrawV2";
 import AdminPanel from "./AdminPanel";
+import AccountMenu, { ForcedPasswordChange } from "./AccountMenu";
 
 const H = "'Fraunces', 'Georgia', serif";
 const B = "'Outfit', 'Helvetica Neue', sans-serif";
@@ -19,9 +20,9 @@ const DIAGRAMS_KEY = "/api/diagrams";
 const NOTIFICATIONS_KEY = "/api/notifications";
 
 export default function ProcessDrawApp() {
-  const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
-  const { isSignedIn } = useAuth();
-  const { signOut } = useClerk();
+  const { data: session, status: sessionStatus } = useSession();
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
+  const isSignedIn = sessionStatus === "authenticated";
   const { mutate } = useSWRConfig();
   const [sessionExpired, setSessionExpired] = useState(false);
 
@@ -44,17 +45,17 @@ export default function ProcessDrawApp() {
 
   // Inactivity sign-out (shorter window for demo accounts).
   useEffect(() => {
-    if (!isSignedIn || !clerkUser?.id || !currentUser) return;
+    if (!isSignedIn || !sessionUserId || !currentUser) return;
 
     const timeoutMs = currentUser.isDemo ? DEMO_TIMEOUT_MS : REAL_TIMEOUT_MS;
-    const storageKey = `processdraw:lastActivity:${clerkUser.id}`;
+    const storageKey = `processdraw:lastActivity:${sessionUserId}`;
     const now = Date.now();
     const stored = Number(window.localStorage.getItem(storageKey) || now);
 
     if (Number.isFinite(stored) && now - stored > timeoutMs) {
       window.localStorage.removeItem(storageKey);
       setSessionExpired(true);
-      void signOut({ redirectUrl: "/" });
+      void signOut({ callbackUrl: "/" });
       return;
     }
 
@@ -73,7 +74,7 @@ export default function ProcessDrawApp() {
       if (Number.isFinite(lastActivity) && Date.now() - lastActivity > timeoutMs) {
         window.localStorage.removeItem(storageKey);
         setSessionExpired(true);
-        void signOut({ redirectUrl: "/" });
+        void signOut({ callbackUrl: "/" });
       }
     };
 
@@ -87,7 +88,7 @@ export default function ProcessDrawApp() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", visibilityHandler);
     };
-  }, [isSignedIn, clerkUser?.id, currentUser, signOut]);
+  }, [isSignedIn, sessionUserId, currentUser]);
 
   const mappedDiagrams = useMemo(() => (diagrams || []).map((d: any) => ({
     _id: d.id,
@@ -99,21 +100,22 @@ export default function ProcessDrawApp() {
     status: d.status,
     currentRevision: d.currentRevision ?? undefined,
     updatedAt: d.updatedAt,
-    isOwn: d.ownerId === currentUser?.clerkId,
+    isOwn: d.ownerId === currentUser?.id,
     rejectionComment: d.rejectionComment,
     rejectedByName: d.rejectedByName,
     revertComment: d.revertComment,
     revertedByName: d.revertedByName,
     approvedByName: d.approvedByName,
     revisionCount: d.revisionCount || 0,
-  })), [diagrams, currentUser?.clerkId]);
+  })), [diagrams, currentUser?.id]);
 
   if (sessionExpired) return <LoadingScreen message="Session expired. Signing you out..." />;
-  if (!isClerkLoaded || !isSignedIn) return <LoadingScreen message="Authenticating..." />;
+  if (sessionStatus === "loading" || !isSignedIn) return <LoadingScreen message="Authenticating..." />;
   if (userError) return <ErrorScreen message={userError.message || "Could not load your account"} onRetry={() => retryUser()} />;
   if (!currentUser) return <LoadingScreen message="Setting up your account..." />;
 
-  if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div></div>;
+  if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><button onClick={() => signOut({ callbackUrl: "/" })} style={{ background: C.accent, border: "none", color: "#fff", borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: B }}>Sign out</button></div></div>;
+  if (currentUser.mustChangePassword) return <ForcedPasswordChange userName={currentUser.name} onDone={() => retryUser()} />;
   if (isAdmin) return <AdminPanel onBack={() => {}} isFullScreen />;
 
   const refreshData = () => {
@@ -145,7 +147,7 @@ export default function ProcessDrawApp() {
     isApprover: currentUser.role === "approver",
     canEdit: currentUser.role === "user",
     canCreate: currentUser.role === "user",
-    UserButton: <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />,
+    UserButton: <AccountMenu name={currentUser.name} email={currentUser.email} role={currentUser.role} />,
     notifications: notificationData?.notifications || [],
     unreadCount: notificationData?.unreadCount || 0,
     onMarkRead: async (id: string) => { await apiCall("/api/notifications", "POST", { id }); void mutate(NOTIFICATIONS_KEY); },

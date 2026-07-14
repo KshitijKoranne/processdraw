@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.update(schema.diagramVersions).set({
         statusAtSnapshot: "reverted",
         snapshotType: "reverted_snapshot",
-        revertedBy: user.clerkId,
+        revertedBy: user.id,
         revertedByName: user.name,
         revertedAt: now,
         revertRemarks: remarks,
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       finalizedBy: null,
       finalizedByName: null,
       finalizedAt: null,
-      revertedBy: user.clerkId,
+      revertedBy: user.id,
       revertedByName: user.name,
       revertComment: remarks,
       revertedAt: now,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await logAction({
       action: "diagram_reverted",
-      actorId: user.clerkId,
+      actorId: user.id,
       actorName: user.name,
       actorEmail: user.email,
       targetType: "diagram",

@@ -11,11 +11,11 @@ export async function GET() {
     const db = getDb();
     const [notifications, unread] = await Promise.all([
       db.select().from(schema.notifications)
-        .where(eq(schema.notifications.userId, user.clerkId))
+        .where(eq(schema.notifications.userId, user.id))
         .orderBy(desc(schema.notifications.createdAt))
         .limit(50),
       db.select({ count: sql<number>`count(*)::int` }).from(schema.notifications)
-        .where(and(eq(schema.notifications.userId, user.clerkId), eq(schema.notifications.read, false))),
+        .where(and(eq(schema.notifications.userId, user.id), eq(schema.notifications.read, false))),
     ]);
     return NextResponse.json({ notifications, unreadCount: unread[0]?.count ?? 0 });
   } catch (error) {
@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     if (body.id) {
       await db.update(schema.notifications).set({ read: true })
-        .where(and(eq(schema.notifications.id, String(body.id)), eq(schema.notifications.userId, user.clerkId)));
+        .where(and(eq(schema.notifications.id, String(body.id)), eq(schema.notifications.userId, user.id)));
     } else {
       await db.update(schema.notifications).set({ read: true })
-        .where(and(eq(schema.notifications.userId, user.clerkId), eq(schema.notifications.read, false)));
+        .where(and(eq(schema.notifications.userId, user.id), eq(schema.notifications.read, false)));
     }
     return NextResponse.json({ ok: true });
   } catch (error) {

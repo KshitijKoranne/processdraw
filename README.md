@@ -14,35 +14,27 @@ cd processdraw
 npm install
 ```
 
-### 2. Set up Clerk (Authentication)
-
-1. Go to [clerk.com](https://clerk.com) and create a free account
-2. Create a new application
-3. Enable **Username** and **Password** sign-in (employees sign in with an employee code)
-4. Go to **API Keys** and copy your **Publishable Key** and **Secret Key**
-
-### 3. Set up Neon (Database)
+### 2. Set up Neon (Database)
 
 1. Go to [console.neon.tech](https://console.neon.tech) and create a project called "processdraw"
 2. Copy the **pooled connection string** (Connection Details → the URL ending in `-pooler`)
 
-### 4. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Fill in your `.env.local`:
+Fill in your `.env.local` — only two values are required:
 
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_XXXX
-CLERK_SECRET_KEY=sk_test_XXXX
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 DATABASE_URL=postgresql://...your-neon-pooled-url...
+AUTH_SECRET=any-long-random-string
 ```
 
-### 5. Create the database tables
+Generate a strong `AUTH_SECRET` with `openssl rand -base64 33` (or `npx auth secret`).
+
+### 4. Create the database tables
 
 ```bash
 npm run db:push
@@ -52,11 +44,19 @@ This creates all tables in your Neon database from the Drizzle schema
 (`src/db/schema.ts`). Re-run it whenever the schema changes.
 `npm run db:studio` opens a local browser UI to inspect your data.
 
-### 6. Run locally
+### 5. Run locally
 
 ```bash
 npm run dev
 ```
+
+### 6. First-run setup
+
+Open the app and click **Sign In**. On a fresh database the sign-in page
+becomes a one-time setup form that creates the first account as **IT Admin**.
+After that, the admin creates all further accounts from the Admin Panel
+(employees sign in with their employee code; they must set their own
+password at first login).
 
 ### 7. Deploy to Vercel
 
@@ -75,13 +75,15 @@ npm run dev
 | **Approver** | Review submitted diagrams, approve/reject |
 | **Viewer** | View approved diagrams only (read-only) |
 
-The first user to sign up automatically becomes IT Admin.
+The first account (created via the one-time setup form) is the IT Admin.
+Admins can create employees, change roles, disable accounts, and reset
+passwords; users change their own password from the account menu.
 
 ## Tech Stack
 
 - Next.js 16 + TypeScript
 - Neon Postgres + Drizzle ORM
-- Clerk (authentication)
+- Auth.js (credentials sign-in, bcrypt-hashed passwords, JWT sessions)
 - SVG-based diagram renderer
 - A4 auto-split PNG/PDF export with signature footer on every page
 - Watermarked exports for unapproved diagrams (DRAFT / PENDING APPROVAL / REJECTED)
