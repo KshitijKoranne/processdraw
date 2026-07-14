@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import useSWR from "swr";
+import { fetcher } from "@/lib/api";
 import { COLORS } from "./constants";
 import { buttonStyle, useEscapeKey } from "./ui";
 
@@ -29,7 +29,7 @@ function Remark({ label, value }: { label: string; value?: string }) {
 
 export default function RevisionHistoryPanel({ diagramId, diagramName, onClose }: { diagramId: string; diagramName?: string; onClose: () => void }) {
   useEscapeKey(onClose);
-  const versions = useQuery(api.diagrams.listVersions, { diagramId: diagramId as any });
+  const { data: versions } = useSWR(`/api/diagrams/${diagramId}/versions`, fetcher);
   const sorted = [...(versions || [])].sort((a: any, b: any) => b.revisionNumber - a.revisionNumber);
 
   return (
@@ -50,7 +50,7 @@ export default function RevisionHistoryPanel({ diagramId, diagramName, onClose }
           {versions && versions.length === 0 && <p style={{ color: COLORS.muted, fontSize: 13 }}>No submitted revisions have been captured yet.</p>}
 
           {sorted.map((version: any) => (
-            <article key={version._id} style={{ background: COLORS.paper, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14, marginBottom: 12 }}>
+            <article key={version.id} style={{ background: COLORS.paper, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <strong style={{ fontSize: 14 }}>Revision {version.revisionNumber}</strong>
                 <span style={{ background: statusColor(version.statusAtSnapshot), color: "#fff", borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>{version.statusAtSnapshot}</span>

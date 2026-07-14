@@ -18,18 +18,13 @@ npm install
 
 1. Go to [clerk.com](https://clerk.com) and create a free account
 2. Create a new application
-3. Choose sign-in methods (Google recommended)
+3. Enable **Username** and **Password** sign-in (employees sign in with an employee code)
 4. Go to **API Keys** and copy your **Publishable Key** and **Secret Key**
-5. Go to **Configure → Integrations → Convex** and activate it
-6. Copy the **Frontend API URL** (format: `https://verb-noun-00.clerk.accounts.dev`)
 
-### 3. Set up Convex (Database)
+### 3. Set up Neon (Database)
 
-1. Go to [dashboard.convex.dev](https://dashboard.convex.dev) and create a new project called "processdraw"
-2. Copy your **Deployment URL** (format: `https://something.convex.cloud`)
-3. Go to **Settings → Environment Variables** and add:
-   - Key: `CLERK_JWT_ISSUER_DOMAIN`
-   - Value: your Clerk Frontend API URL from step 2.6
+1. Go to [console.neon.tech](https://console.neon.tech) and create a project called "processdraw"
+2. Copy the **pooled connection string** (Connection Details → the URL ending in `-pooler`)
 
 ### 4. Configure environment
 
@@ -44,20 +39,20 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_XXXX
 CLERK_SECRET_KEY=sk_test_XXXX
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
+DATABASE_URL=postgresql://...your-neon-pooled-url...
 ```
 
-### 5. Initialize Convex
+### 5. Create the database tables
 
 ```bash
-npx convex dev
+npm run db:push
 ```
 
-This syncs your schema and functions to the Convex backend.
+This creates all tables in your Neon database from the Drizzle schema
+(`src/db/schema.ts`). Re-run it whenever the schema changes.
+`npm run db:studio` opens a local browser UI to inspect your data.
 
 ### 6. Run locally
-
-In a separate terminal:
 
 ```bash
 npm run dev
@@ -68,7 +63,8 @@ npm run dev
 1. Push to GitHub
 2. Connect repo on [vercel.com](https://vercel.com)
 3. Add all env vars from `.env.local` to Vercel project settings
-4. Deploy Convex to production: `npx convex deploy`
+   (plus `CRON_SECRET` if you use demo accounts — see `vercel.json`)
+4. Deploy — no separate backend deploy step needed
 
 ## Roles
 
@@ -84,7 +80,7 @@ The first user to sign up automatically becomes IT Admin.
 ## Tech Stack
 
 - Next.js 16 + TypeScript
-- Convex (real-time database)
+- Neon Postgres + Drizzle ORM
 - Clerk (authentication)
 - SVG-based diagram renderer
 - A4 auto-split PNG/PDF export with signature footer on every page

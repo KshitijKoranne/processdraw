@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "ProcessDraw — Process Flow Diagram Builder",
@@ -23,7 +23,7 @@ export default function RootLayout({
         />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

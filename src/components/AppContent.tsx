@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import ProcessDrawApp from "./ProcessDrawApp";
 
 const H = "'Fraunces', 'Georgia', serif";
@@ -82,11 +81,11 @@ function LandingPage() {
 }
 
 export default function AppContent() {
+  const { isLoaded, isSignedIn } = useAuth();
   return (
     <>
-      <AuthLoading><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, color: "#2c2824", fontFamily: "'Fraunces', Georgia, serif" }}>ProcessDraw</div><div style={{ fontSize: 13, color: "#b5ada5", marginTop: 8, fontFamily: "'Outfit', sans-serif" }}>Loading...</div></div></div></AuthLoading>
-      <Unauthenticated><LandingPage /></Unauthenticated>
-      <Authenticated><ProcessDrawApp /></Authenticated>
+      {!isLoaded && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, color: "#2c2824", fontFamily: "'Fraunces', Georgia, serif" }}>ProcessDraw</div><div style={{ fontSize: 13, color: "#b5ada5", marginTop: 8, fontFamily: "'Outfit', sans-serif" }}>Loading...</div></div></div>}
+      {isLoaded && (isSignedIn ? <ProcessDrawApp /> : <LandingPage />)}
     </>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useEffect, useMemo } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import { useUser, useAuth, UserButton, useClerk } from "@clerk/nextjs";
-import { api } from "../../convex/_generated/api";
+import { useState } from "react";
+import { fetcher, apiCall } from "@/lib/api";
 import ProcessDrawV2 from "./ProcessDrawV2";
 import AdminPanel from "./AdminPanel";
 
@@ -14,63 +15,34 @@ const DEMO_TIMEOUT_MS = 30 * 60 * 1000;
 const REAL_TIMEOUT_MS = 60 * 60 * 1000;
 const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
 
+const DIAGRAMS_KEY = "/api/diagrams";
+const NOTIFICATIONS_KEY = "/api/notifications";
+
 export default function ProcessDrawApp() {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
   const { isSignedIn } = useAuth();
   const { signOut } = useClerk();
-  const upsertUser = useMutation(api.users.upsertUser);
-  const currentUser = useQuery(api.users.getCurrentUser);
-  const diagrams = useQuery(api.diagrams.listAll);
-  const createDiagram = useMutation(api.diagrams.create);
-  const updateDiagram = useMutation(api.diagrams.update);
-  const removeDiagram = useMutation(api.diagrams.remove);
-  const submitDiagram = useMutation(api.diagrams.submit);
-  const reviewDiagram = useMutation(api.diagrams.review);
-  const reviseDiagram = useMutation(api.diagrams.revise);
-  const sendBackDiagram = useMutation(api.diagrams.sendBack);
-  const isDemoUser = useQuery(api.demoData.isDemoUser);
-  const notifications = useQuery(api.notifications.list);
-  const unreadCount = useQuery(api.notifications.unreadCount);
-  const markRead = useMutation(api.notifications.markRead);
-  const markAllRead = useMutation(api.notifications.markAllRead);
-
-  const [syncState, setSyncState] = useState<"idle" | "syncing" | "done" | "error">("idle");
-  const [syncError, setSyncError] = useState("");
-  const [retryCount, setRetryCount] = useState(0);
+  const { mutate } = useSWRConfig();
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  const syncUser = useCallback(async () => {
-    if (!clerkUser || !isSignedIn) return;
-    setSyncState("syncing");
-    try { await upsertUser(); setSyncState("done"); }
-    catch (err: any) { setSyncError(err?.message || "Failed to sync"); setSyncState("error"); }
-  }, [clerkUser, isSignedIn, upsertUser]);
+  const { data: currentUser, error: userError, mutate: retryUser } = useSWR(
+    isSignedIn ? "/api/me" : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const isAdmin = currentUser?.role === "it_admin";
+  const { data: diagrams } = useSWR(
+    currentUser && !currentUser.disabled && !isAdmin ? DIAGRAMS_KEY : null,
+    fetcher,
+    { refreshInterval: 15000 }
+  );
+  const { data: notificationData } = useSWR(
+    currentUser && !currentUser.disabled && !isAdmin ? NOTIFICATIONS_KEY : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
 
-  useEffect(() => { if (isClerkLoaded && isSignedIn && clerkUser && syncState === "idle") syncUser(); }, [isClerkLoaded, isSignedIn, clerkUser, syncState, syncUser]);
-  useEffect(() => { if (syncState === "error" && retryCount < 3) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 2000); return () => clearTimeout(t); } }, [syncState, retryCount]);
-  useEffect(() => { if (syncState === "done" && currentUser === null && retryCount < 5) { const t = setTimeout(() => { setSyncState("idle"); setRetryCount((c) => c + 1); }, 1500); return () => clearTimeout(t); } }, [syncState, currentUser, retryCount]);
-
-  // Parse diagram JSON only when the data actually changes — doing this
-  // inline made every render re-parse every diagram.
-  const parsedDiagrams = useMemo(() => (diagrams || []).map((d: any) => ({
-    _id: d._id,
-    name: d.name,
-    ownerName: d.ownerName,
-    blocks: JSON.parse(d.blocks || "[]"),
-    arrowAnnotations: JSON.parse(d.arrowAnnotations || "{}"),
-    settings: { ...JSON.parse(d.settings || "{}"), finalized: !!d.finalized },
-    status: d.status,
-    currentRevision: d.currentRevision,
-    updatedAt: d.updatedAt,
-    isOwn: d.ownerId === currentUser?.clerkId,
-    rejectionComment: d.rejectionComment,
-    rejectedByName: d.rejectedByName,
-    revertComment: d.revertComment,
-    revertedByName: d.revertedByName,
-    approvedByName: d.approvedByName,
-    revisionCount: d.revisionCount || 0,
-  })), [diagrams, currentUser?.clerkId]);
-
+  // Inactivity sign-out (shorter window for demo accounts).
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id || !currentUser) return;
 
@@ -117,40 +89,68 @@ export default function ProcessDrawApp() {
     };
   }, [isSignedIn, clerkUser?.id, currentUser, signOut]);
 
+  const mappedDiagrams = useMemo(() => (diagrams || []).map((d: any) => ({
+    _id: d.id,
+    name: d.name,
+    ownerName: d.ownerName,
+    blocks: d.blocks || [],
+    arrowAnnotations: d.arrowAnnotations || {},
+    settings: { ...(d.settings || {}), finalized: !!d.finalized },
+    status: d.status,
+    currentRevision: d.currentRevision ?? undefined,
+    updatedAt: d.updatedAt,
+    isOwn: d.ownerId === currentUser?.clerkId,
+    rejectionComment: d.rejectionComment,
+    rejectedByName: d.rejectedByName,
+    revertComment: d.revertComment,
+    revertedByName: d.revertedByName,
+    approvedByName: d.approvedByName,
+    revisionCount: d.revisionCount || 0,
+  })), [diagrams, currentUser?.clerkId]);
+
   if (sessionExpired) return <LoadingScreen message="Session expired. Signing you out..." />;
   if (!isClerkLoaded || !isSignedIn) return <LoadingScreen message="Authenticating..." />;
-  if (syncState === "error" && retryCount >= 3) return <ErrorScreen message={syncError} onRetry={() => { setRetryCount(0); setSyncState("idle"); }} />;
-  if (!currentUser) return <LoadingScreen message={syncState === "syncing" ? "Setting up your account..." : "Connecting..."} />;
+  if (userError) return <ErrorScreen message={userError.message || "Could not load your account"} onRetry={() => retryUser()} />;
+  if (!currentUser) return <LoadingScreen message="Setting up your account..." />;
 
   if (currentUser.disabled) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f6f3ee", fontFamily: B }}><div style={{ textAlign: "center", maxWidth: 400 }}><div style={{ fontSize: 24, fontWeight: 700, color: "#2c2824", fontFamily: H, marginBottom: 12 }}>Account Disabled</div><div style={{ fontSize: 14, color: "#8a8078", lineHeight: 1.6, marginBottom: 24 }}>Your account has been disabled by an administrator. Please contact your IT Admin for assistance.</div><UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} /></div></div>;
-  if (currentUser.role === "it_admin") return <AdminPanel onBack={() => {}} isFullScreen />;
+  if (isAdmin) return <AdminPanel onBack={() => {}} isFullScreen />;
+
+  const refreshData = () => {
+    void mutate(DIAGRAMS_KEY);
+    void mutate(NOTIFICATIONS_KEY);
+  };
 
   const cloud = {
     role: currentUser.role,
     userName: currentUser.name,
     userEmail: currentUser.email,
-    diagrams: parsedDiagrams,
+    diagrams: mappedDiagrams,
     onSave: async (name: string, blocks: any, annotations: any, settings: any, existingId?: string) => {
-      const safeSettings = { ...settings, finalized: false };
-      const data = { name, blocks: JSON.stringify(blocks), arrowAnnotations: JSON.stringify(annotations), settings: JSON.stringify(safeSettings) };
-      if (existingId) { await updateDiagram({ diagramId: existingId as any, ...data }); return existingId; }
-      const newId = await createDiagram(data);
-      return newId as string;
+      const data = { name, blocks, arrowAnnotations: annotations, settings: { ...settings, finalized: false } };
+      let id = existingId;
+      if (existingId) {
+        await apiCall(`/api/diagrams/${existingId}`, "PATCH", data);
+      } else {
+        const result = await apiCall("/api/diagrams", "POST", data);
+        id = result.id;
+      }
+      refreshData();
+      return id;
     },
-    onDelete: async (id: string) => { await removeDiagram({ diagramId: id as any }); },
-    onSubmit: async (id: string, remarks: string) => { await submitDiagram({ diagramId: id as any, remarks }); },
-    onReview: async (id: string, decision: string, remarks: string) => { await reviewDiagram({ diagramId: id as any, decision, remarks }); },
-    onRevise: async (id: string, remarks: string) => { await reviseDiagram({ diagramId: id as any, remarks }); },
-    onSendBack: async (id: string, remarks: string) => { await sendBackDiagram({ diagramId: id as any, remarks }); },
+    onDelete: async (id: string) => { await apiCall(`/api/diagrams/${id}`, "DELETE"); refreshData(); },
+    onSubmit: async (id: string, remarks: string) => { await apiCall(`/api/diagrams/${id}/submit`, "POST", { remarks }); refreshData(); },
+    onReview: async (id: string, decision: string, remarks: string) => { await apiCall(`/api/diagrams/${id}/review`, "POST", { decision, remarks }); refreshData(); },
+    onSendBack: async (id: string, remarks: string) => { await apiCall(`/api/diagrams/${id}/send-back`, "POST", { remarks }); refreshData(); },
     isApprover: currentUser.role === "approver",
     canEdit: currentUser.role === "user",
     canCreate: currentUser.role === "user",
     UserButton: <UserButton appearance={{ elements: { profileSectionPrimaryButton__danger: { display: "none" }, profileSectionContent__danger: { display: "none" } } }} />,
-    notifications: notifications || [],
-    unreadCount: unreadCount || 0,
-    onMarkRead: async (id: string) => { await markRead({ notificationId: id as any }); },
-    onMarkAllRead: async () => { await markAllRead(); },
-    isDemo: isDemoUser || false,
+    notifications: notificationData?.notifications || [],
+    unreadCount: notificationData?.unreadCount || 0,
+    onMarkRead: async (id: string) => { await apiCall("/api/notifications", "POST", { id }); void mutate(NOTIFICATIONS_KEY); },
+    onMarkAllRead: async () => { await apiCall("/api/notifications", "POST", {}); void mutate(NOTIFICATIONS_KEY); },
+    isDemo: !!currentUser.isDemo,
   };
   return <ProcessDrawV2 cloud={cloud} />;
 }

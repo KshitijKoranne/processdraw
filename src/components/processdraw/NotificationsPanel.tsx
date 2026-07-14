@@ -5,7 +5,7 @@ import { COLORS } from "./constants";
 import { buttonStyle } from "./ui";
 
 export type NotificationRecord = {
-  _id: string;
+  id: string;
   type: string;
   diagramName: string;
   actorName: string;
@@ -96,8 +96,8 @@ export default function NotificationsBell({
             const copy = TYPE_COPY[notification.type] || { label: notification.type, color: COLORS.muted };
             return (
               <div
-                key={notification._id}
-                onClick={() => { if (!notification.read) onMarkRead(notification._id); }}
+                key={notification.id}
+                onClick={() => { if (!notification.read) onMarkRead(notification.id); }}
                 style={{ padding: "11px 14px", borderBottom: `1px solid ${COLORS.border}`, cursor: notification.read ? "default" : "pointer", background: notification.read ? "transparent" : COLORS.accentLight }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
